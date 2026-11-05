@@ -12,7 +12,7 @@ import {
 	sats,
 } from "../../src/round/types.ts";
 
-/** Every action in the `Next` relation of model/AjoRound.tla except the stuttering `Done`. */
+/** Every action in the `Next` relation of the TLA+ model AjoRound.tla, which lands in PR6, except the stuttering `Done`. */
 export const MODEL_ACTIONS = [
 	"Start",
 	"MakeInvoice",
