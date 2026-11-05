@@ -13,13 +13,15 @@ Every run gets its own Compose project, host ports, a private scratch dir for se
 
 ```bash
 export COMPOSE_PROJECT_NAME=ajo-verify-$RANDOM # never reuse a project you did not start
-export HUB_PORT_PREFIX=828 RELAY_PORT=7200     # defaults are 818 and 7100; hubs listen on <prefix>0 to <prefix>5
+export HUB_PORT_PREFIX=828 RELAY_PORT=7200     # pick values no other run uses; hubs listen on <prefix>0 to <prefix>5
 export RUN=$(mktemp -d) EVIDENCE=/tmp/verify-ajo/$COMPOSE_PROJECT_NAME
 mkdir -p "$EVIDENCE" && chmod 700 "$RUN"
 cap() { local slug=$1; shift; { echo "\$ $*"; "$@"; echo "exit=$?"; } 2>&1 | tee "$EVIDENCE/$slug.txt"; }
 ```
 
-Run every command below from the repo root with these variables set. `cap <slug> <command>` saves the command, its output, and its exit code to `$EVIDENCE/<slug>.txt`.
+Run `npm ci` once in the worktree. Run every command below from the repo root with these variables set. If your tool starts a new shell for each command, save this block to a file in `$RUN` and source it each time. `cap <slug> <command>` saves the command, its output, and its exit code to `$EVIDENCE/<slug>.txt`. It always returns 0, so read the `exit=` line.
+
+Before launch, run `lsof -iTCP -sTCP:LISTEN -nP | grep -E ":(${HUB_PORT_PREFIX}[0-5]|$RELAY_PORT) "` and require no output. Run `docker compose ls -a | grep "$COMPOSE_PROJECT_NAME"` and require no output too.
 
 ## Launch
 
@@ -27,7 +29,7 @@ Run every command below from the repo root with these variables set. `cap <slug>
 cap up ./scripts/up # add MEMBERS=3 in front to start 3 member hubs instead of 5
 ```
 
-Ready means the last seed line reads `seed done: router and 5 member hubs each have an active channel` and `scripts/up` exits 0. A cold boot takes about 15 seconds with images pulled. The first run also builds the small `seed` image. A bare `docker compose up` does the same in the foreground and prints the same `seed done` line, then keeps running.
+Ready means a seed line starts with `seed done: router and 5 member hubs each have an active channel` and `scripts/up` exits 0. A cold boot takes about 15 seconds with images pulled. The first run also builds the small `seed` image. A bare `docker compose up` does the same in the foreground and prints the same `seed done` line, then keeps running.
 
 ## Doctor
 
@@ -57,7 +59,7 @@ docker compose run --rm --no-deps -T --entrypoint cat seed /state/connections.js
 ## Cleanup
 
 ```bash
-docker compose down -v
+docker compose down -v --rmi local
 rm -rf "$RUN"
 ls "$EVIDENCE"
 ```

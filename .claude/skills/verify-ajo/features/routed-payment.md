@@ -20,7 +20,7 @@ Preconditions:
 - `$RUN/connections.json` exists, per the skill's Drive section.
 
 - **Get the flow script.** Run `git show 2efe05b:spike/flow.mjs > "$RUN/flow.mjs" && printf '{"type":"module"}' > "$RUN/package.json" && npm i --prefix "$RUN" --silent @getalby/sdk@9.0.0`. If your relay is not on 7100, run `sed -i.bak "s#ws://127.0.0.1:7100#ws://127.0.0.1:$RELAY_PORT#" "$RUN/flow.mjs"`.
-- **Run it.** Run `(cd "$RUN" && node flow.mjs) 2>&1 | grep -E 'delta|rejected:|->' | tee "$EVIDENCE/route.txt"`. Four `member<n> -> member1` lines show `payee state=settled`.
+- **Run it.** Define `route() { (cd "$RUN" && node flow.mjs) > "$RUN/flow.log" 2>&1; local rc=$?; grep -E 'delta|rejected:|->' "$RUN/flow.log"; return $rc; }`, then run `cap route route`. Four `member<n> -> member1` lines show `payee state=settled`, and the transcript ends with `exit=0`.
 - **Balances.** The same file shows `member1 delta= 4000`, `delta= -1001` for members 2 to 5, `router delta= 4`, and `balance deltas: ALL OK`. These come from hub `/api/channels`.
 - **Budget refusal.** The file holds `rejected: Nip47WalletError code=QUOTA_EXCEEDED`.
 - **Scope refusal.** The file holds `rejected: Nip47WalletError code=RESTRICTED`.
