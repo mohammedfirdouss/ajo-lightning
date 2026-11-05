@@ -18,7 +18,6 @@ test("the database file holds no member name and no NWC secret in plain text", (
 	const bytes = Buffer.concat([readFileSync(join(dir, "ajo.db")), readFileSync(join(dir, "ajo.db-wal"), { flag: "a+" })]).toString("latin1");
 	assert.ok(!bytes.includes("Adaeze"), "member name in the database file");
 	assert.ok(!bytes.includes("nostr+walletconnect://"), "NWC secret in the database file");
-	assert.throws(() => openStore(join(dir, "ajo.db"), randomBytes(32)).members(), /unable to authenticate|Unsupported state/);
 });
 
 test("only the owner can read or write the database file", (t) => {
@@ -28,4 +27,15 @@ test("only the owner can read or write the database file", (t) => {
 	store.addMembers([{ name: "Adaeze Okafor", pay: "p", receive: "r" }]);
 	for (const f of ["ajo.db", "ajo.db-wal"]) assert.equal(statSync(join(dir, f)).mode & 0o777, 0o600, f);
 	store.close();
+});
+
+test("a database opened with another key names the fix, not the cipher error", (t) => {
+	const dir = mkdtempSync(join(tmpdir(), "ajo-store-"));
+	t.after(() => rmSync(dir, { recursive: true }));
+	const sealed = openStore(join(dir, "ajo.db"), randomBytes(32));
+	sealed.addMembers([{ name: "Adaeze Okafor", pay: "p", receive: "r" }]);
+	sealed.close();
+	const other = openStore(join(dir, "ajo.db"), randomBytes(32));
+	t.after(() => other.close());
+	assert.throws(() => other.members(), (e: Error) => /different AJO_SECRET_KEY/.test(e.message) && /docker compose down -v/.test(e.message) && !/authenticate|Unsupported state/.test(e.message));
 });

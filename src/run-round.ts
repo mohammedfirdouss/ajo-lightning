@@ -200,7 +200,7 @@ async function runFromState(id: RoundId, stateDir: string) {
 	}
 }
 
-/** The keys live in `.env`, which compose hands to the app container. The first host run creates them. */
+/** The keys live in `.env`, which compose hands to the app container. The first host run creates them. Compose prefers a key exported in the shell. */
 function ensureKeys() {
 	const file = `${root}/.env`;
 	let text = existsSync(file) ? readFileSync(file, "utf8") : "";
@@ -210,7 +210,8 @@ function ensureKeys() {
 		writeFileSync(file, text, { mode: 0o600 });
 		chmodSync(file, 0o600);
 	}
-	return Buffer.from(/^AJO_SECRET_KEY=([0-9a-f]{64})$/m.exec(text)?.[1] ?? "", "hex");
+	const exported = process.env.AJO_SECRET_KEY;
+	return Buffer.from(exported && HEX32.test(exported) ? exported : (/^AJO_SECRET_KEY=([0-9a-f]{64})$/m.exec(text)?.[1] ?? ""), "hex");
 }
 
 /** The container reports pseudonyms, so its log never holds a name. The host puts the names back for the caller. */
