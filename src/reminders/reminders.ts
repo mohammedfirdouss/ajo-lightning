@@ -4,7 +4,7 @@ import { LANGUAGES, type ReminderInput } from "./templates.ts";
 export type Reminder = { text: string; source: "ai" | "template" };
 
 export const MODEL = "claude-opus-5-5";
-export const TIMEOUT_MS = 4500;
+export const TIMEOUT_MS = 3500;
 
 export function promptFor({ lang, amount, due, member }: ReminderInput) {
 	return {

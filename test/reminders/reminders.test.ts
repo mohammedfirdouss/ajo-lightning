@@ -63,7 +63,7 @@ test("a call that hangs falls back to the template in under 5 seconds", async ()
 	const ms = performance.now() - start;
 	assert.equal(r.source, "template");
 	assert.equal(r.text, LANGUAGES.wo.template(input("wo")));
-	assert.ok(ms >= TIMEOUT_MS - 50 && ms < 5000, `fell back after ${Math.round(ms)} ms`);
+	assert.ok(ms >= TIMEOUT_MS && ms < 5000, `fell back after ${Math.round(ms)} ms`);
 });
 
 test("a failed call falls back to the template", async () => {
