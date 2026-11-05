@@ -60,7 +60,7 @@ test(`random events in any order never replace an invoice or reopen a settled co
 			const payer = pick(rand, payers);
 			const event = pick<RoundEvent>(rand, [
 				{ type: "start" },
-				{ type: "invoiceMade", payer, invoice: { paymentHash: `${payer}-${i}`, bolt11: "lnbcrt", amount: sats(1000) } },
+				{ type: "invoiceMade", payer, invoice: { paymentHash: `${payer}-${i}`, bolt11: "lnbcrt", amount: sats(1000), expiresAt: 1 } },
 				{ type: "paySent", payer },
 				{ type: "payReplied", payer },
 				{ type: "payReplied", payer, error: pick(rand, reasons) },

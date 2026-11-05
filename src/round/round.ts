@@ -27,10 +27,10 @@ function step(c: Contribution, event: Extract<RoundEvent, { payer: MemberId }>, 
 			if (!event.error) return { state: "paid", payer: c.payer, invoice: c.invoice };
 			return { ...c, step: "lookup", lastErr: event.error };
 		case "lookupReplied":
-			if (c.state !== "invoiced" || c.step !== "lookup") return `${c.payer} has no lookup to record`;
+			if (c.state !== "invoiced" || (c.step !== "lookup" && c.step !== "lookupAtExpiry")) return `${c.payer} has no lookup to record`;
 			if (event.invoice === "settled") return { state: "paid", payer: c.payer, invoice: c.invoice };
 			if (event.invoice === "expired") return { state: "failed", payer: c.payer, invoice: c.invoice, reason: c.lastErr ?? "TIMEOUT" };
-			return c.tries < round.maxTries ? { ...c, step: "pay" } : c;
+			return { ...c, step: c.tries < round.maxTries ? "pay" : "lookupAtExpiry" };
 	}
 }
 
@@ -79,6 +79,9 @@ export function next(round: Round): Command[] {
 		if (c.state === "pending") commands.push({ type: "makeInvoice", payer: c.payer, amount: round.contribution });
 		if (c.state === "invoiced" && c.step === "pay") commands.push({ type: "pay", payer: c.payer, invoice: c.invoice });
 		if (c.state === "invoiced" && c.step === "lookup") commands.push({ type: "lookup", payer: c.payer, invoice: c.invoice });
+		if (c.state === "invoiced" && c.step === "lookupAtExpiry") {
+			commands.push({ type: "lookup", payer: c.payer, invoice: c.invoice, waitUntil: c.invoice.expiresAt });
+		}
 	}
 	if (round.contributions.every(settled)) commands.push({ type: "close" });
 	return commands;

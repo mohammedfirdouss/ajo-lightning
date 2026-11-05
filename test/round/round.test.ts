@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { apply, newRound, next } from "../../src/round/round.ts";
 import { memberId, roundId, sats } from "../../src/round/types.ts";
-import { type ModelAction, World } from "./world.ts";
+import { EXPIRES_AT, type ModelAction, World } from "./world.ts";
 
 const m2 = memberId("member2");
 const m3 = memberId("member3");
@@ -69,7 +69,7 @@ test("NoPayerChargedTwice: a retry cannot mint a second invoice, and every retry
 	w.MakeInvoice(m2);
 	const stored = w.contribution(m2);
 	assert.equal(stored.state, "invoiced");
-	const second = { paymentHash: "f".repeat(64), bolt11: "lnbcrt-second", amount: sats(1000) };
+	const second = { paymentHash: "f".repeat(64), bolt11: "lnbcrt-second", amount: sats(1000), expiresAt: EXPIRES_AT };
 	assert.equal(w.feed({ type: "invoiceMade", payer: m2, invoice: second }).ok, false);
 	assert.deepEqual(w.contribution(m2), stored);
 	w.SendPay(m2);
@@ -116,15 +116,23 @@ test("NoPayerChargedTwice: a restart turns an outstanding pay into a lookup, so 
 	assert.deepEqual(commandTypes(w), ["lookup"]);
 });
 
-test("NoPayerChargedTwice: an open invoice past the try limit is only looked up, never paid again", () => {
+test("NoPayerChargedTwice: an open invoice past the try limit is only looked up, at its expiry, never paid again", () => {
 	const w = new World(["member2"], 1);
 	w.Start();
 	w.MakeInvoice(m2);
 	w.SendPay(m2);
 	w.WalletRefuses(m2, "QUOTA_EXCEEDED");
 	w.RecordReply(m2);
+	const c = w.contribution(m2);
+	assert.equal(c.state, "invoiced");
+	assert.deepEqual(next(w.round), [{ type: "lookup", payer: m2, invoice: c.invoice }], "the first lookup after a failed pay runs now");
 	w.LookupInvoice(m2);
-	assert.deepEqual(commandTypes(w), ["lookup"]);
+	assert.deepEqual(next(w.round), [{ type: "lookup", payer: m2, invoice: c.invoice, waitUntil: EXPIRES_AT }]);
+	w.LookupInvoice(m2);
+	assert.deepEqual(next(w.round), [{ type: "lookup", payer: m2, invoice: c.invoice, waitUntil: EXPIRES_AT }]);
+	w.InvoiceExpires(c.invoice.paymentHash);
+	lookupAndClose(w);
+	assert.equal(w.round.phase, "partial");
 });
 
 test("NoPayerChargedTwice: running a partial round again asks no wallet to pay", () => {
@@ -150,7 +158,7 @@ test("NoPayerChargedTwice: running a partial round again asks no wallet to pay",
 test("PayeeGetsAtMostThePot: an invoice for any amount but the contribution is rejected", () => {
 	const w = new World();
 	w.Start();
-	const invoice = { paymentHash: "a".repeat(64), bolt11: "lnbcrt", amount: sats(1001) };
+	const invoice = { paymentHash: "a".repeat(64), bolt11: "lnbcrt", amount: sats(1001), expiresAt: EXPIRES_AT };
 	assert.equal(w.feed({ type: "invoiceMade", payer: m2, invoice }).ok, false);
 	assert.equal(w.contribution(m2).state, "pending");
 });

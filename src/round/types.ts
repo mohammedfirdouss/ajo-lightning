@@ -23,7 +23,8 @@ export function roundId(n: number): RoundId {
 /** A wallet refusal moves no money. `PAYMENT_FAILED` and `TIMEOUT` only mean no reply proved a payment. */
 export type FailReason = "QUOTA_EXCEEDED" | "INSUFFICIENT_BALANCE" | "PAYMENT_FAILED" | "TIMEOUT";
 
-export type Invoice = { paymentHash: string; bolt11: string; amount: Sats };
+/** `expiresAt` is in unix seconds, as NWC `make_invoice` returns it. */
+export type Invoice = { paymentHash: string; bolt11: string; amount: Sats; expiresAt: number };
 
 export type Pending = { state: "pending"; payer: MemberId };
 /** `lastErr` never fails a contribution. Only a lookup that finds the invoice expired does. */
@@ -31,7 +32,7 @@ export type Invoiced = {
 	state: "invoiced";
 	payer: MemberId;
 	invoice: Invoice;
-	step: "pay" | "paying" | "lookup";
+	step: "pay" | "paying" | "lookup" | "lookupAtExpiry";
 	tries: number;
 	lastErr?: FailReason;
 };
@@ -58,11 +59,15 @@ export type RoundEvent =
 	| { type: "rerun" }
 	| { type: "close" };
 
-/** Persist `paySent` before calling `pay_invoice`, so a crash mid-call leads to a lookup, not a second pay. */
+/**
+ * Persist `paySent` before calling `pay_invoice`, so a crash mid-call leads to a lookup, not a second pay.
+ * A lookup runs on the payee's wallet, never the payer's. A lookup with `waitUntil` (unix seconds) has no pay left
+ * to try, so nothing changes before the invoice settles late or expires, and the runner can wait until then.
+ */
 export type Command =
 	| { type: "makeInvoice"; payer: MemberId; amount: Sats }
 	| { type: "pay"; payer: MemberId; invoice: Invoice }
-	| { type: "lookup"; payer: MemberId; invoice: Invoice }
+	| { type: "lookup"; payer: MemberId; invoice: Invoice; waitUntil?: number }
 	| { type: "close" };
 
 export type Applied = { ok: true; round: Round } | { ok: false; round: Round; reason: string };

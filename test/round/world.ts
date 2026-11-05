@@ -34,6 +34,7 @@ export type ModelAction = (typeof MODEL_ACTIONS)[number];
 
 export const REFUSALS = ["QUOTA_EXCEEDED", "INSUFFICIENT_BALANCE"] as const satisfies FailReason[];
 const C = 1000;
+export const EXPIRES_AT = 1_800_000_000;
 
 type Call = { at: "sent" | "routing"; hash: string } | { at: "replied"; hash: string; error?: FailReason };
 type Move = { action: ModelAction; run: () => void };
@@ -104,7 +105,7 @@ export class World {
 		const cmd = this.command("makeInvoice", payer);
 		const paymentHash = `${payer}-${this.invoices.size}`;
 		this.invoices.set(paymentHash, { payer, state: "open" });
-		const invoice: Invoice = { paymentHash, bolt11: `lnbcrt${paymentHash}`, amount: cmd.amount };
+		const invoice: Invoice = { paymentHash, bolt11: `lnbcrt${paymentHash}`, amount: cmd.amount, expiresAt: EXPIRES_AT };
 		this.must({ type: "invoiceMade", payer, invoice });
 	}
 
