@@ -2,12 +2,10 @@ import type { Sats } from "../round/types.ts";
 
 export type Lang = "en" | "pcm" | "yo" | "fr" | "wo";
 
-/** Round state only. A member is their seat number, so no name or phone number can reach a reminder. */
 export type ReminderInput = { lang: Lang; amount: Sats; due: string; member: number };
 
 type Language = { name: string; template: (r: ReminderInput) => string };
 
-/** The Yoruba and Wolof templates still need a check by a native speaker. */
 export const LANGUAGES: Record<Lang, Language> = {
 	en: {
 		name: "English",

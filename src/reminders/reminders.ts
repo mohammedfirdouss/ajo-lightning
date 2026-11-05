@@ -6,7 +6,6 @@ export type Reminder = { text: string; source: "ai" | "template" };
 export const MODEL = "claude-opus-5-5";
 export const TIMEOUT_MS = 4500;
 
-/** Builds the request from the four round fields by name, so an extra field on the caller's object never reaches the model. */
 export function promptFor({ lang, amount, due, member }: ReminderInput) {
 	return {
 		system:
