@@ -51,7 +51,7 @@ test(`the five model rules and NoPayWhileUnresolved hold and every round ends, o
 
 const hashOf = (preimage: string) => createHash("sha256").update(Buffer.from(preimage, "hex")).digest("hex");
 
-test(`random events in any order never pay without proof or reopen a settled contribution, over ${RUNS} runs`, () => {
+test(`random events in any order never pay without proof, reuse a hash, or reopen a settled contribution, over ${RUNS} runs`, () => {
 	const payers = ["member2", "member3"].map(memberId);
 	const reasons: FailReason[] = ["QUOTA_EXCEEDED", "INSUFFICIENT_BALANCE", "PAYMENT_FAILED", "TIMEOUT"];
 	const pool = Array.from({ length: 6 }, (_, k) => invoiceFor(`h${k}`));
@@ -95,6 +95,8 @@ test(`random events in any order never pay without proof or reopen a settled con
 							after.proof.preimage === event.preimage;
 				assert.ok(proved, `paid without proof, ${why}`);
 			}
+			const hashes = round.contributions.flatMap((c) => ("invoice" in c ? [c.invoice.paymentHash] : []));
+			assert.equal(new Set(hashes).size, hashes.length, `two invoices share a payment hash, ${why}`);
 			if (round.phase === "complete")
 				assert.ok(
 					round.contributions.every((c) => c.state === "paid"),

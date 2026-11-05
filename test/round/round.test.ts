@@ -203,6 +203,16 @@ test("CompleteMeansEveryonePaid: the payee's lookup reporting settled is proof w
 	});
 });
 
+test("NoPayerChargedTwice: an invoice whose payment hash another payer holds is rejected", () => {
+	const w = new World(["member2", "member3"]);
+	w.Start();
+	w.MakeInvoice(m2);
+	const taken = w.contribution(m2);
+	assert.equal(taken.state, "invoiced");
+	assert.equal(w.feed({ type: "invoiceMade", payer: m3, invoice: taken.invoice }).ok, false);
+	assert.deepEqual(w.contribution(m3), { state: "pending", payer: m3 });
+});
+
 test("PayeeGetsAtMostThePot: an invoice for any amount but the contribution is rejected", () => {
 	const w = new World();
 	w.Start();

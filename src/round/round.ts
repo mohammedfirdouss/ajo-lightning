@@ -15,6 +15,8 @@ export function newRound({ id, payee, payers, contribution, maxTries = 2 }: Roun
 const proves = (invoice: Invoice, preimage: unknown) =>
 	typeof preimage === "string" && createHash("sha256").update(Buffer.from(preimage, "hex")).digest("hex") === invoice.paymentHash;
 
+const usedHashes = (round: Round) => round.contributions.flatMap((c) => ("invoice" in c ? [c.invoice.paymentHash] : []));
+
 function step(c: Contribution, event: Extract<RoundEvent, { payer: MemberId }>, round: Round): Contribution | string {
 	switch (event.type) {
 		case "invoiceMade":
@@ -22,6 +24,8 @@ function step(c: Contribution, event: Extract<RoundEvent, { payer: MemberId }>, 
 			if (event.invoice.amount !== round.contribution) {
 				return `the invoice asks ${event.invoice.amount} sat, the contribution is ${round.contribution} sat`;
 			}
+			if (usedHashes(round).includes(event.invoice.paymentHash))
+				return `payment hash ${event.invoice.paymentHash} is already used in this round`;
 			return { state: "invoiced", payer: c.payer, invoice: event.invoice, step: "pay", tries: 0 };
 		case "paySent":
 			if (c.state !== "invoiced" || c.step !== "pay") return `${c.payer} has no payment to send`;
