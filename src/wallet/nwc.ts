@@ -1,4 +1,4 @@
-import { NWCClient, type Nip47Transaction, Nip47TimeoutError, Nip47WalletError } from "@getalby/sdk/nwc";
+import { NWCClient, Nip47Error, type Nip47Transaction, Nip47TimeoutError, Nip47WalletError } from "@getalby/sdk/nwc";
 import { type FailReason, HEX32, type Invoice, type Preimage, paymentHash, type RoundEvent, type Sats, sats } from "../round/types.ts";
 
 export type LookupState = Extract<RoundEvent, { type: "lookupReplied" }>["invoice"];
@@ -41,6 +41,13 @@ function within<T>(ms: number, p: Promise<T>): Promise<T> {
 	});
 	return Promise.race([p, late]).finally(() => clearTimeout(timer));
 }
+
+/** The SDK logs every failed request with its stack before it throws. `connect` turns each throw into a reason, so that log only repeats it. */
+const logError = console.error.bind(console);
+console.error = (...args: unknown[]) => {
+	if (typeof args[0] === "string" && args[0].startsWith("Failed to request ") && args[1] instanceof Nip47Error) return;
+	logError(...args);
+};
 
 export type Wallet = ReturnType<typeof connect>;
 

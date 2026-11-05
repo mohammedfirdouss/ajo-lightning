@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { Nip47NetworkError, Nip47PublishTimeoutError, Nip47ReplyTimeoutError, type Nip47Transaction, Nip47WalletError } from "@getalby/sdk/nwc";
+import { NWCClient, Nip47NetworkError, Nip47PublishTimeoutError, Nip47ReplyTimeoutError, type Nip47Transaction, Nip47WalletError } from "@getalby/sdk/nwc";
 import { type Invoice, paymentHash, sats } from "../../src/round/types.ts";
 import { failReason, lookupState, parseInvoice } from "../../src/wallet/nwc.ts";
 
@@ -50,4 +50,17 @@ test("a minted invoice must ask for the contribution, in whole sats", () => {
 	assert.throws(() => parseInvoice({ ...made, amount: 999_000 }, sats(1000)), /minted 999 sat/);
 	assert.throws(() => parseInvoice({ ...made, amount: 1_000_500 }, sats(1000)), /without/);
 	assert.throws(() => parseInvoice({ ...made, payment_hash: "nothex" }, sats(1000)), /not a payment hash/);
+});
+
+test("a wallet refusal leaves no SDK stack trace on stderr, and other errors still print", async (t) => {
+	const written: string[] = [];
+	t.mock.method(process.stderr, "write", (chunk: string) => written.push(String(chunk)) > 0);
+	const client = new NWCClient({ nostrWalletConnectUrl: `nostr+walletconnect://${"ab".repeat(32)}?relay=ws://127.0.0.1:9&secret=${"cd".repeat(32)}` });
+	t.after(() => client.close());
+	t.mock.method(client as unknown as { executeNip47Request: () => Promise<never> }, "executeNip47Request", async () => {
+		throw new Nip47WalletError("Insufficient budget", "QUOTA_EXCEEDED");
+	});
+	await assert.rejects(client.payInvoice({ invoice: "lnbcrt10u1..." }), Nip47WalletError);
+	console.error("run-round: something else");
+	assert.deepEqual(written, ["run-round: something else\n"]);
 });
