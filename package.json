@@ -8,7 +8,7 @@
 	"scripts": {
 		"lint": "biome lint",
 		"typecheck": "tsc",
-		"test": "sh -c 'node --test ${1:+\"**/*$1*.test.ts\" \"**/*$1*/**/*.test.ts\"}' --"
+		"test": "sh -c 'node --test \"**/*$1*.test.ts\" \"**/*$1*/**/*.test.ts\"' --"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.6.2",
