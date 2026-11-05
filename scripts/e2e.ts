@@ -5,13 +5,15 @@ import { SimplePool } from "nostr-tools/pool";
 import { type Event, verifyEvent } from "nostr-tools/pure";
 import { expectDelta, expectSteady, loadStack, type Stack, sat, snapshot } from "./stack.ts";
 
-// The contract with the round runner. `node src/run-round.ts <round>` exits 0 once the round has run,
-// complete or partial, and prints this report as its last stdout line. `circlePubkey` is the hex key
-// that signs the round's receipts. The runner must finish within RUNNER_TIMEOUT_MS, so it mints
-// invoices with a short expiry and never waits out an unpaid one.
+/**
+ * The contract with the round runner. `node src/run-round.ts <round>` exits 0 once the round has run,
+ * complete or partial, and prints this report as its last stdout line. The runner must finish within
+ * RUNNER_TIMEOUT_MS, so it mints invoices with a short expiry and never waits out an unpaid one.
+ */
 export type RoundReport = {
 	round: number;
 	payee: string;
+	/** The hex key that signs the round's receipts. */
 	circlePubkey: string;
 	state: "complete" | "partial";
 	contributions: { member: string; state: "paid" | "failed"; paymentHash?: string; error?: string }[];
