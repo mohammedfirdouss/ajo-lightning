@@ -22,16 +22,11 @@ export function parseInvoice(tx: Nip47Transaction, amount: Sats): Invoice {
 	return invoice;
 }
 
-/**
- * The payee's hub keeps an unpaid invoice `pending` after it expires, so the expiry is read from the clock.
- * The grace covers an HTLC that the hub accepted just before expiry and settles just after.
- */
-export const EXPIRY_GRACE_SEC = 5;
-
-export function lookupState(tx: Pick<Nip47Transaction, "state" | "payment_hash">, invoice: Invoice, nowSec: number): LookupState {
+/** The payee's hub keeps an unpaid invoice `pending` after it expires, so the caller says from when the clock counts it expired. */
+export function lookupState(tx: Pick<Nip47Transaction, "state" | "payment_hash">, invoice: Invoice, nowSec: number, expiredFromSec: number): LookupState {
 	if (tx?.payment_hash !== invoice.paymentHash) throw new Error(`the payee's wallet looked up ${tx?.payment_hash}, not ${invoice.paymentHash}`);
 	if (tx.state === "settled") return "settled";
-	if (tx.state === "failed" || nowSec >= invoice.expiresAt + EXPIRY_GRACE_SEC) return "expired";
+	if (tx.state === "failed" || nowSec >= expiredFromSec) return "expired";
 	return "open";
 }
 
@@ -64,9 +59,9 @@ export function connect(uri: string) {
 			}
 		},
 		/** A lookup only reads, so any failure, including the SDK's plain relay errors, is no answer yet. */
-		async lookup(invoice: Invoice): Promise<LookupState | undefined> {
+		async lookup(invoice: Invoice, expiredFromSec: number): Promise<LookupState | undefined> {
 			const tx = await client.lookupInvoice({ payment_hash: invoice.paymentHash }).catch(() => undefined);
-			return tx && lookupState(tx, invoice, Date.now() / 1000);
+			return tx && lookupState(tx, invoice, Date.now() / 1000, expiredFromSec);
 		},
 		close: () => client.close(),
 	};

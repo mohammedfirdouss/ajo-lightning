@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Nip47NetworkError, Nip47PublishTimeoutError, Nip47ReplyTimeoutError, type Nip47Transaction, Nip47WalletError } from "@getalby/sdk/nwc";
 import { type Invoice, paymentHash, sats } from "../../src/round/types.ts";
-import { EXPIRY_GRACE_SEC, failReason, lookupState, parseInvoice } from "../../src/wallet/nwc.ts";
+import { failReason, lookupState, parseInvoice } from "../../src/wallet/nwc.ts";
 
 const hash = paymentHash("ab".repeat(32));
 const invoice: Invoice = { paymentHash: hash, bolt11: "lnbcrt10u1...", amount: sats(1000), expiresAt: 1_000 };
@@ -31,16 +31,17 @@ test("no reply, or no way to send the request, maps to TIMEOUT so the runner loo
 
 const tx = (over: Partial<Nip47Transaction>) => ({ state: "pending", payment_hash: hash, ...over }) as Nip47Transaction;
 
-test("a lookup counts an unpaid invoice expired only after its expiry plus the grace", () => {
-	assert.equal(lookupState(tx({ state: "settled" }), invoice, 5_000), "settled");
-	assert.equal(lookupState(tx({ state: "failed" }), invoice, 0), "expired");
-	assert.equal(lookupState(tx({ state: "pending" }), invoice, invoice.expiresAt + EXPIRY_GRACE_SEC - 1), "open");
-	assert.equal(lookupState(tx({ state: "accepted" }), invoice, invoice.expiresAt), "open");
-	assert.equal(lookupState(tx({ state: "pending" }), invoice, invoice.expiresAt + EXPIRY_GRACE_SEC), "expired");
+test("a lookup counts an unpaid invoice expired only from the time the caller names", () => {
+	const from = invoice.expiresAt + 60;
+	assert.equal(lookupState(tx({ state: "settled" }), invoice, from + 1, from), "settled");
+	assert.equal(lookupState(tx({ state: "failed" }), invoice, 0, from), "expired");
+	assert.equal(lookupState(tx({ state: "pending" }), invoice, from - 1, from), "open");
+	assert.equal(lookupState(tx({ state: "accepted" }), invoice, from - 1, from), "open");
+	assert.equal(lookupState(tx({ state: "pending" }), invoice, from, from), "expired");
 });
 
 test("a lookup reply about another invoice is refused", () => {
-	assert.throws(() => lookupState(tx({ payment_hash: "cd".repeat(32) }), invoice, 0), /looked up/);
+	assert.throws(() => lookupState(tx({ payment_hash: "cd".repeat(32) }), invoice, 0, 0), /looked up/);
 });
 
 test("a minted invoice must ask for the contribution, in whole sats", () => {

@@ -6,14 +6,16 @@ import { circlePubkey, publish, receiptEvent } from "./receipts/nostr.ts";
 import { apply, newRound, next } from "./round/round.ts";
 import type { RoundReport } from "../scripts/e2e.ts";
 import { loadStack } from "../scripts/stack.ts";
-import { type Command, type FailReason, HEX32, type Invoice, type MemberId, type Round, type RoundEvent, type RoundId, roundId, sats } from "./round/types.ts";
+import { type Command, type Contribution, type FailReason, HEX32, type Invoice, type MemberId, type Round, type RoundEvent, type RoundId, roundId, sats } from "./round/types.ts";
 import { openStore, pseudonym, type Store } from "./store/sqlite.ts";
-import { connect, EXPIRY_GRACE_SEC, type LookupState, type Wallet } from "./wallet/nwc.ts";
+import { connect, type LookupState, type Wallet } from "./wallet/nwc.ts";
 
 /** A partial round may run again this many times. Each rerun only looks up stored invoices, so more cannot help. */
 const MAX_RERUNS = 3;
 /** Short enough that waiting out a refused member's invoice ends well inside the e2e's 120 seconds. */
 const INVOICE_EXPIRY_SEC = 30;
+/** Covers an HTLC that the payee's hub accepted just before expiry and settles just after. */
+const EXPIRY_GRACE_SEC = 5;
 const LOOKUP_POLL_MS = 3_000;
 const RUN_BUDGET_MS = 100_000;
 const KEYS = ["AJO_SECRET_KEY", "AJO_CIRCLE_KEY"] as const;
@@ -27,6 +29,14 @@ const PLAIN: Record<FailReason, string> = {
 	PAYMENT_FAILED: "The payment did not reach the payee, and the invoice expired unpaid.",
 	TIMEOUT: "The wallet did not answer in time, and the invoice expired unpaid.",
 };
+
+/**
+ * Only a refusal proves no HTLC left the payer's wallet. After any other reply, or a crash mid-pay, an HTLC can
+ * still be in flight, and the payee's hub accepts one well past the invoice's expiry, so its expiry is not final.
+ */
+const refused = (reason: FailReason | undefined) => reason === "QUOTA_EXCEEDED" || reason === "INSUFFICIENT_BALANCE";
+const mayBeInFlight = (c: Contribution) =>
+	(c.state === "invoiced" && c.tries > 0 && (c.step === "paying" || !refused(c.lastErr))) || (c.state === "failed" && !refused(c.reason));
 
 function hexKey(name: (typeof KEYS)[number]) {
 	const v = process.env[name] ?? "";
@@ -69,8 +79,10 @@ async function runRound(id: RoundId, stateDir: string): Promise<RoundReport> {
 	};
 	const payee = members[(id - 1) % members.length];
 
+	const stored = store.round(id);
+	const inFlight = new Set(stored?.contributions.filter(mayBeInFlight).map((c) => c.payer));
 	let round = resume(
-		store.round(id) ?? newRound({ id, payee: payee.id, payers: members.filter((m) => m !== payee).map((m) => m.id), contribution: sats(seed.contributionSat) }),
+		stored ?? newRound({ id, payee: payee.id, payers: members.filter((m) => m !== payee).map((m) => m.id), contribution: sats(seed.contributionSat) }),
 	);
 	store.saveRound(round);
 
@@ -89,10 +101,11 @@ async function runRound(id: RoundId, stateDir: string): Promise<RoundReport> {
 	};
 	const receive = () => wallet(payee.receive);
 
-	async function settledOrExpired(invoice: Invoice, waitUntil?: number): Promise<LookupState> {
-		const until = waitUntil === undefined ? Date.now() + LOOKUP_POLL_MS : (waitUntil + EXPIRY_GRACE_SEC + 1) * 1000;
+	async function settledOrExpired(payer: MemberId, invoice: Invoice, waitForExpiry: boolean): Promise<LookupState> {
+		const expiredFromSec = inFlight.has(payer) ? deadline / 1000 : invoice.expiresAt + EXPIRY_GRACE_SEC;
+		const until = waitForExpiry ? (expiredFromSec + 1) * 1000 : Date.now() + LOOKUP_POLL_MS;
 		for (let delay = 500; ; delay = Math.min(delay * 2, 4_000)) {
-			const state = await receive().lookup(invoice);
+			const state = await receive().lookup(invoice, expiredFromSec);
 			if (state === "settled" || state === "expired") return state;
 			if (Date.now() >= until) return "open";
 			await sleep(Math.min(delay, Math.max(until - Date.now(), 0)));
@@ -109,8 +122,10 @@ async function runRound(id: RoundId, stateDir: string): Promise<RoundReport> {
 			feed({ type: "paySent", payer: cmd.payer });
 			const reply = await wallet(member(cmd.payer).pay).pay(cmd.invoice);
 			feed({ type: "payReplied", payer: cmd.payer, ...reply });
+			const c = round.contributions.find((x) => x.payer === cmd.payer);
+			if (c && mayBeInFlight(c)) inFlight.add(cmd.payer);
 		} else {
-			const state = await settledOrExpired(cmd.invoice, cmd.waitUntil);
+			const state = await settledOrExpired(cmd.payer, cmd.invoice, cmd.waitUntil !== undefined);
 			feed({ type: "lookupReplied", payer: cmd.payer, paymentHash: cmd.invoice.paymentHash, invoice: state });
 		}
 	}
