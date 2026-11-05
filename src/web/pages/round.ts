@@ -1,9 +1,9 @@
 import { html } from "hono/html";
 import type { MemberId, Round } from "../../round/types.ts";
 import { type Money, roundWord, status } from "../copy.ts";
+import { PASSCODE } from "../passcode.ts";
 import type { Circle } from "../source.ts";
 import { beadRing } from "./beads.ts";
-import { passcodeToEnter } from "./circle.ts";
 import { type Html, layout } from "./layout.ts";
 
 /** `reminders` holds the text for each payer who has not paid yet. */
@@ -50,7 +50,7 @@ ${beadRing(
 		)}</ul>
 ${
 	label
-		? html`<form method="post" action="/round/${round.id}/collect" class="stack">${passcodeToEnter}<div class="bar"><button>${label}</button></div></form>`
+		? html`<form method="post" action="/round/${round.id}/collect" class="bar collect"><label>Circle passcode <input type="password" name="passcode" required minlength="${PASSCODE.min}" maxlength="${PASSCODE.max}" autocomplete="current-password"></label><button>${label}</button></form>`
 		: live
 			? html`<div class="bar"><button disabled>Collecting…</button></div>`
 			: html`<p><a href="/receipts">See the receipts</a></p>`
