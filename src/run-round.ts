@@ -18,6 +18,8 @@ const INVOICE_EXPIRY_SEC = 30;
 /** Covers an HTLC that the payee's hub accepted just before expiry and settles just after. */
 const EXPIRY_GRACE_SEC = 5;
 const LOOKUP_POLL_MS = 3_000;
+/** A lookup that fails at once must not turn the wait for an invoice into a busy loop. */
+const LOOKUP_GAP_MS = { min: 500, max: 4_000 };
 const RUN_BUDGET_MS = 100_000;
 const KEYS = ["AJO_SECRET_KEY", "AJO_CIRCLE_KEY"] as const;
 
@@ -106,14 +108,17 @@ export async function runRound(id: RoundId, { store, members, connect, publish, 
 	};
 	const receive = () => wallet(payee.receive);
 
+	const lookupGap = new Map<MemberId, number>();
 	async function settledOrExpired(payer: MemberId, invoice: Invoice, waitForExpiry: boolean): Promise<LookupState> {
 		const expiredFromSec = inFlight.has(payer) ? deadline / 1000 : invoice.expiresAt + EXPIRY_GRACE_SEC;
 		const until = waitForExpiry ? (expiredFromSec + 1) * 1000 : now() + LOOKUP_POLL_MS;
-		for (let delay = 500; ; delay = Math.min(delay * 2, 4_000)) {
+		for (;;) {
 			const state = await receive().lookup(invoice, expiredFromSec);
 			if (state === "settled" || state === "expired") return state;
+			const gap = lookupGap.get(payer) ?? LOOKUP_GAP_MS.min;
+			lookupGap.set(payer, Math.min(gap * 2, LOOKUP_GAP_MS.max));
+			await sleep(gap);
 			if (now() >= until) return "open";
-			await sleep(Math.min(delay, Math.max(until - now(), 0)));
 		}
 	}
 

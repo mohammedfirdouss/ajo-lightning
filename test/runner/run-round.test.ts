@@ -177,3 +177,22 @@ test("each paid contribution reaches the relay once, across a failed publish and
 	const tagged = ln.published.map((e) => e.tags.find((t) => t[0] === "payment_hash")?.[1]).sort();
 	assert.deepEqual(tagged, hashes(report));
 });
+
+test("lookups that fail at once stay at least 500 ms apart after the invoice's expiry", async () => {
+	const clock = { ms: 1_700_000_000_000 };
+	const ln = lightning(clock);
+	const start = clock.ms;
+	const chidisHash = () => ln.calls.pays.find((p) => p.uri === "pay:chidi")?.hash;
+	await assert.rejects(
+		ln.run(1, fakeStore(), {
+			pay: refuse("chidi", "QUOTA_EXCEEDED"),
+			lookup: (invoice) => {
+				clock.ms += 1;
+				return invoice.paymentHash === chidisHash() ? undefined : "settled";
+			},
+		}),
+		/still collecting/,
+	);
+	const chidi = ln.calls.lookups.filter((h) => h === chidisHash()).length;
+	assert.ok(chidi <= (clock.ms - start) / 500, `${chidi} lookups in ${clock.ms - start} ms`);
+});
