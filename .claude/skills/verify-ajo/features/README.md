@@ -31,3 +31,7 @@ Each feature file has an H1, one paragraph on the user-visible behavior, and fou
 - [Restart warm](./warm-restart.md) covers `docker compose restart` and how fast channels and payments come back.
 - [Route a payment](./routed-payment.md) covers `scripts/route`: a two-hop payment, the pay budget refusal, and the receive-only refusal.
 - [Run the e2e checks](./e2e.md) covers `scripts/e2e` and its self-test.
+- [Start a circle](./web-circle.md) covers the circle page, the fake source, and the naira rate.
+- [Join a circle](./web-join.md) covers the join form and how it guards NWC links.
+- [Collect a round](./web-round.md) covers the round page, live rows, and the plain failure reasons.
+- [Read the receipts](./web-receipts.md) covers the receipts page.
