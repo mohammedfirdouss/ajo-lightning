@@ -10,8 +10,8 @@ import { checkLinks, nwcSource } from "../../src/web/nwc-source.ts";
 import { lock } from "../../src/web/passcode.ts";
 import { nwcLink } from "../../src/web/source.ts";
 
-const PAY: LinkInfo = { methods: ["pay_invoice", "get_info", "get_budget"], budgetSat: 1010 };
-const RECEIVE: LinkInfo = { methods: ["make_invoice", "lookup_invoice", "get_info"] };
+const PAY: LinkInfo = { methods: ["pay_invoice", "get_info", "get_budget"], budget: { totalSat: 1010, usedSat: 0, renewal: "monthly" } };
+const RECEIVE: LinkInfo = { methods: ["make_invoice", "make_hold_invoice", "settle_hold_invoice", "cancel_hold_invoice", "lookup_invoice", "get_info"] };
 const link = () => nwcLink(`nostr+walletconnect://${randomBytes(32).toString("hex")}?relay=ws%3A%2F%2Frelay%3A8080&secret=${randomBytes(32).toString("hex")}`) ?? assert.fail();
 
 test("link checks refuse a receive link that can pay, a pay link that can invoice, and a wallet that does not answer", () => {
@@ -27,8 +27,22 @@ test("link checks refuse a receive link that can pay, a pay link that can invoic
 	assert.match(reason(RECEIVE, PAY), /^Your receive link can spend money/, "swapped links are caught");
 	assert.match(reason(undefined, RECEIVE), /could not reach the wallet behind your pay link/);
 	assert.match(reason(PAY, undefined), /could not reach the wallet behind your receive link/);
-	assert.match(reason({ ...PAY, budgetSat: undefined }, RECEIVE), /no spending limit/);
-	assert.match(reason({ ...PAY, budgetSat: 999 }, RECEIVE), /limit of 999 sat is less than the 1000 sat/);
+});
+
+test("link checks want a renewing pay limit with room for the contribution and its routing fee", () => {
+	const reason = (budget: LinkInfo["budget"], contribution = 1000) => {
+		const r = checkLinks({ ...PAY, budget }, RECEIVE, sats(contribution));
+		return r.ok ? "ok" : r.reason;
+	};
+	const monthly = (totalSat: number, usedSat = 0) => ({ totalSat, usedSat, renewal: "monthly" as const });
+	assert.equal(reason(monthly(1010)), "ok");
+	assert.match(reason(undefined), /no spending limit/);
+	assert.match(reason(monthly(1009)), /limit of 1009 sat is less than the 1010 sat each round needs, which is 1000 sat plus up to 10 sat in routing fees/);
+	assert.match(reason(monthly(1000)), /less than the 1010 sat/, "a limit of exactly the contribution leaves nothing for the fee");
+	assert.match(reason(monthly(5049), 5000), /less than the 5050 sat each round needs, which is 5000 sat plus up to 50 sat/, "the fee is 1% above 1000 sat");
+	assert.equal(reason(monthly(5050), 5000), "ok");
+	assert.match(reason(monthly(1010, 1001)), /has 9 sat left of its limit until it renews/);
+	assert.match(reason({ totalSat: 1_000_000, usedSat: 0, renewal: "never" }), /limit never renews/);
 });
 
 async function source(info: (uri: string) => Promise<LinkInfo>) {

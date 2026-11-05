@@ -4,7 +4,7 @@ import { type RunEnv, runRound } from "../run-round.ts";
 import { roundId, type Sats, sats } from "../round/types.ts";
 import type { Store } from "../store/sqlite.ts";
 import type { LinkInfo } from "../wallet/nwc.ts";
-import { type Circle, type Demo, type Member, type NewCircle, type RoundSource, scheduled } from "./source.ts";
+import { type Circle, type Demo, type Member, type NewCircle, payBudget, type RoundSource, scheduled } from "./source.ts";
 
 export type NwcSourceEnv = {
 	store: Store;
@@ -24,15 +24,23 @@ export type LinkCheck = { ok: true; capSat: Sats } | { ok: false; reason: string
 /** Judges a pair of links by what their wallets report, in words a member can act on. `undefined` means no answer. */
 export function checkLinks(pay: LinkInfo | undefined, receive: LinkInfo | undefined, contribution: Sats): LinkCheck {
 	const no = (reason: string): LinkCheck => ({ ok: false, reason });
+	const need = payBudget(contribution);
 	if (!pay) return no("Ajo could not reach the wallet behind your pay link. Check that your wallet is online, then try again.");
 	if (!receive) return no("Ajo could not reach the wallet behind your receive link. Check that your wallet is online, then try again.");
 	if (receive.methods.includes("pay_invoice")) return no(`Your receive link can spend money, so Ajo will not keep it. ${fix("receive link that can only create invoices and look them up")}`);
 	if (!receive.methods.includes("make_invoice") || !receive.methods.includes("lookup_invoice")) return no(`Your receive link cannot create invoices and look them up. ${fix("receive link with those two permissions")}`);
 	if (pay.methods.includes("make_invoice")) return no(`Your pay link can also create invoices. ${fix("pay link that can only pay")}`);
 	if (!pay.methods.includes("pay_invoice")) return no(`Your pay link cannot pay. ${fix("pay link with permission to pay")}`);
-	if (pay.budgetSat === undefined) return no(`Your pay link has no spending limit. ${fix("pay link with a limit")}`);
-	if (pay.budgetSat < contribution) return no(`Your pay link's limit of ${pay.budgetSat} sat is less than the ${contribution} sat each member pays. ${fix("pay link with a higher limit")}`);
-	return { ok: true, capSat: sats(pay.budgetSat) };
+	const { budget } = pay;
+	if (!budget) return no(`Your pay link has no spending limit. ${fix("pay link with a limit")}`);
+	if (budget.renewal === "never") return no(`Your pay link's limit never renews, so it runs out after one round. ${fix("pay link with a limit that renews each week or month")}`);
+	if (budget.totalSat < need) {
+		return no(`Your pay link's limit of ${budget.totalSat} sat is less than the ${need} sat each round needs, which is ${contribution} sat plus up to ${need - contribution} sat in routing fees. ${fix("pay link with a higher limit")}`);
+	}
+	if (budget.totalSat - budget.usedSat < need) {
+		return no(`Your pay link has ${Math.max(0, budget.totalSat - budget.usedSat)} sat left of its limit until it renews, less than the ${need} sat a round needs. ${fix("pay link with an unused limit")}`);
+	}
+	return { ok: true, capSat: sats(budget.totalSat) };
 }
 
 export function nwcSource({ store, circleKey, relayUrl, publish, connect, linkInfo, demo }: NwcSourceEnv): RoundSource {

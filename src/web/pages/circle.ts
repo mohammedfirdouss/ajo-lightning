@@ -3,7 +3,7 @@ import type { Round, Sats } from "../../round/types.ts";
 import { LANGUAGES } from "../../reminders/templates.ts";
 import { type Money, roundWord } from "../copy.ts";
 import { PASSCODE } from "../passcode.ts";
-import type { Circle } from "../source.ts";
+import { type Circle, maxContribution } from "../source.ts";
 import { beadRing } from "./beads.ts";
 import { type Html, layout } from "./layout.ts";
 
@@ -22,7 +22,7 @@ export const createPage = ({ error, capSat }: { error?: string; capSat?: Sats } 
 ${error ? html`<p class="error" role="alert">${error}</p>` : ""}
 <form method="post" action="/circle" class="stack">
 <label>Circle name <input name="name" required maxlength="40" autocomplete="off"></label>
-<label>Each member pays, in sats <input name="contribution" required inputmode="numeric" pattern="[0-9]+" value="${capSat === undefined ? 1000 : Math.min(1000, capSat)}">
+<label>Each member pays, in sats <input name="contribution" required inputmode="numeric" pattern="[0-9]+" value="${capSat === undefined ? 1000 : Math.min(1000, maxContribution(capSat))}">
 ${capSat === undefined ? "" : html`<span class="hint">The demo wallets can each pay up to ${capSat} sat a month.</span>`}</label>
 <fieldset><legend>How often</legend>
 <label class="choice"><input type="radio" name="cadence" value="weekly"> Every week</label>

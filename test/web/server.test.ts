@@ -189,7 +189,9 @@ test("on the demo stack a circle cannot ask more than a demo wallet may pay", as
 	assert.match(await (await app.request("/")).text(), /demo wallets can each pay up to 1010 sat a month/);
 	const over = await app.request("/circle", form({ name: "Market ajo", contribution: "5000", cadence: "monthly", lang: "en", passcode }));
 	assert.equal(over.status, 422);
-	assert.match(await over.text(), /Choose 1010 sat or less/);
+	assert.match(await over.text(), /up to 1010 sat a month, fee included. Choose 1000 sat or less/);
+	const feeless = await app.request("/circle", form({ name: "Market ajo", contribution: "1010", cadence: "monthly", lang: "en", passcode }));
+	assert.equal(feeless.status, 422, "1010 sat leaves no room for the routing fee");
 	assert.equal(await source.circle(), undefined, "the refused circle is not stored, so the organiser can try again");
-	assert.equal((await app.request("/circle", form({ name: "Market ajo", contribution: "1010", cadence: "monthly", lang: "en", passcode }))).status, 303);
+	assert.equal((await app.request("/circle", form({ name: "Market ajo", contribution: "1000", cadence: "monthly", lang: "en", passcode }))).status, 303);
 });

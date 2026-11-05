@@ -3,7 +3,7 @@ import type { RoundReport } from "../../scripts/e2e.ts";
 import { reasonCopy } from "./copy.ts";
 import { apply, next } from "../round/round.ts";
 import { type Command, type Invoice, type MemberId, memberId, type PaymentHash, type Preimage, type Round, type RoundEvent, type RoundId, sats } from "../round/types.ts";
-import { type Circle, type RoundSource, scheduled } from "./source.ts";
+import { type Circle, payBudget, type RoundSource, scheduled } from "./source.ts";
 
 /**
  * A stand-in for the NWC runner, for tests and live lanes only. It drives the real round reducer against
@@ -83,7 +83,7 @@ export function fakeSource({ stepMs = 0, spentSat = {} }: FakeOptions = {}): Rou
 			if (rounds.size > 0) return { ok: false, reason: "This circle has started its rounds, so it is closed to new members." };
 			const id = memberId(`member${circle.members.length + 1}`);
 			spent.set(id, spentSat[id] ?? 0);
-			const member = { id, name, capSat: sats(circle.contribution + Math.max(Math.ceil(circle.contribution / 100), 10)) };
+			const member = { id, name, capSat: sats(payBudget(circle.contribution)) };
 			circle = { ...circle, members: [...circle.members, member] };
 			return { ok: true, member };
 		},

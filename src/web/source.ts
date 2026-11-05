@@ -15,6 +15,11 @@ export function nwcLink(s: string): NwcLink | undefined {
 	return NWC.test(t) ? (t as NwcLink) : undefined;
 }
 
+/** A pay link must cover the contribution plus the routing fee the hub reserves for it, max(1%, 10 sat). */
+export const payBudget = (contribution: number) => contribution + Math.max(Math.ceil(contribution / 100), 10);
+/** The largest contribution whose `payBudget` fits in `budget`. */
+export const maxContribution = (budget: number) => Math.min(budget - 10, Math.floor((100 * budget) / 101));
+
 export type Cadence = "weekly" | "monthly";
 /** `capSat` is what the member's pay connection lets the app spend each period, as their wallet reports it. */
 export type Member = { id: MemberId; name: string; capSat: Sats };

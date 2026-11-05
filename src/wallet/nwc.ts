@@ -74,7 +74,8 @@ export function connect(uri: string) {
 	};
 }
 
-export type LinkInfo = { methods: readonly string[]; budgetSat?: number };
+export type Renewal = "daily" | "weekly" | "monthly" | "yearly" | "never";
+export type LinkInfo = { methods: readonly string[]; budget?: { totalSat: number; usedSat: number; renewal: Renewal } };
 
 /** A wrong wallet key or secret only shows as silence, which the SDK gives up on after 10 seconds. */
 const INFO_REPLY_MS = 12_000;
@@ -84,8 +85,9 @@ export async function linkInfo(uri: string): Promise<LinkInfo> {
 	const client = new NWCClient({ nostrWalletConnectUrl: uri });
 	try {
 		const { methods } = await within(INFO_REPLY_MS, client.getInfo());
-		const budget = methods.includes("get_budget") ? await within(INFO_REPLY_MS, client.getBudget()) : {};
-		return { methods, budgetSat: "total_budget" in budget ? Math.floor(budget.total_budget / 1000) : undefined };
+		const b = methods.includes("get_budget") ? await within(INFO_REPLY_MS, client.getBudget()) : {};
+		if (!("total_budget" in b)) return { methods };
+		return { methods, budget: { totalSat: Math.floor(b.total_budget / 1000), usedSat: Math.ceil(b.used_budget / 1000), renewal: b.renewal_period } };
 	} finally {
 		client.close();
 	}
