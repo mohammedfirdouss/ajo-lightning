@@ -1,4 +1,4 @@
-import { channels, type Hub, hubGet, loadStack } from "./stack.ts";
+import { channels, type Hub, hubGet, loadStack, type Stack } from "./stack.ts";
 
 const results: boolean[] = [];
 async function check(name: string, probe: () => Promise<string>) {
@@ -20,7 +20,7 @@ async function hub(h: Hub, want: number) {
 	return `running, ${active} of ${chans.length} channels active`;
 }
 
-let stack: ReturnType<typeof loadStack> | undefined;
+let stack: Stack | undefined;
 await check("state", async () => {
 	stack = loadStack();
 	return `${stack.members.length} members, contribution ${stack.contributionSat} sat, pay budget ${stack.budgetSat} sat`;
