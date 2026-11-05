@@ -15,7 +15,7 @@ ${error ? html`<p class="error" role="alert">${error}</p>` : ""}
 <label>Your name <input name="name" required maxlength="40" autocomplete="name" value="${name}"></label>
 <label>Pay link from your wallet
 <input type="password" name="pay" required autocomplete="off" spellcheck="false" data-scan placeholder="nostr+walletconnect://…">
-<span class="hint">Make it with a monthly limit. Ajo can never spend more than that limit.</span></label>
+<span class="hint">Make it with a ${circle.cadence} limit. Ajo can never spend more than that limit.</span></label>
 <label>Receive link from your wallet
 <input type="password" name="receive" required autocomplete="off" spellcheck="false" data-scan placeholder="nostr+walletconnect://…">
 <span class="hint">It can only make invoices and check them. It cannot spend.</span></label>

@@ -16,9 +16,10 @@ On the circle page, press "Join this circle", type a name, paste both links from
 
 ## Driving it with scripts and the hub API
 
-Start the server per [web-circle.md](web-circle.md). On the live stack, take real links from `$RUN/connections.json` (`.members[i].pay.uri` and `.members[i].receive.uri`) and fill them with `getByLabel("Pay link from your wallet")` and `getByLabel("Receive link from your wallet")`. The fake source checks only the link format.
+Start the server per [web-circle.md](web-circle.md). On the live stack, take real links from `$RUN/connections.json` (`.members[i].pay.uri` and `.members[i].receive.uri`) and fill them with `getByLabel("Pay link from your wallet")` and `getByLabel("Receive link from your wallet")`. The fake source checks only the link format and then ignores both links.
 
 ## Gotchas
 
 - Screenshot the form only after filling, since the fields are masked. Never write a link into `$EVIDENCE`.
+- The pay hint asks for a limit that renews as often as the circle pays, weekly or monthly.
 - The fake gives every member a limit of contribution plus max(1%, 10 sat), the same budget the seed sets.

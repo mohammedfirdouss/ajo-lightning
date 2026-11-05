@@ -94,6 +94,14 @@ test("the join page asks for both links, hides them as typed, and shows the erro
 	assert.match(page, /value="Efe"/);
 });
 
+test("the join page asks for a pay limit that renews as often as the circle pays", async () => {
+	for (const cadence of ["weekly", "monthly"] as const) {
+		const text = await visible(joinPage({ ...circle, cadence }, m));
+		assert.match(text, new RegExp(`Make it with a ${cadence} limit`));
+		assert.doesNotMatch(text, new RegExp(`${cadence === "weekly" ? "monthly" : "weekly"} limit`));
+	}
+});
+
 test("the receipts page lists each paid contribution with its payment hash and no failed one", async () => {
 	const r = round("partial", [paid(1), paid(2), { state: "failed", payer: ids[3], invoice: invoice(3), tries: 2, reason: "QUOTA_EXCEEDED" }]);
 	const text = await visible(receiptsPage(circle, [r], m));
