@@ -1,0 +1,4 @@
+#!/bin/sh
+dir=$(dirname "$0")
+[ -d "$dir/../node_modules/@anthropic-ai/sdk" ] || { echo "@anthropic-ai/sdk is not installed, run npm ci first" >&2; exit 1; }
+exec node "$dir/../src/reminders/cli.ts" "$@"

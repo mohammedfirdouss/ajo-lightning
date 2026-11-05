@@ -31,3 +31,4 @@ Each feature file has an H1, one paragraph on the user-visible behavior, and fou
 - [Restart warm](./warm-restart.md) covers `docker compose restart` and how fast channels and payments come back.
 - [Route a payment](./routed-payment.md) covers `scripts/route`: a two-hop payment, the pay budget refusal, and the receive-only refusal.
 - [Run the e2e checks](./e2e.md) covers `scripts/e2e` and its self-test.
+- Reminders need no stack. `scripts/remind --lang fr --amount 4000 --due 2026-11-12 --member 3` prints one, and `npm test -- reminders` covers it. `ANTHROPIC_API_KEY` is optional, and without it the script falls back to a template. The Yoruba and Wolof templates await a native-speaker check.
