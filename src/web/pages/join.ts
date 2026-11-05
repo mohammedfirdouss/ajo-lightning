@@ -7,7 +7,7 @@ import { per } from "./circle.ts";
 export const joinPage = (circle: Circle, m: Money, error?: string, name = "") =>
 	layout(
 		`Join ${circle.name}`,
-		html`<p><a href="/">Back to ${circle.name}</a></p>
+		html`<p class="back"><a href="/">Back to ${circle.name}</a></p>
 <h1>Join ${circle.name}</h1>
 <p class="mut">You pay ${m.sat(circle.contribution)} (${m.naira(circle.contribution)}) ${per[circle.cadence]}, straight to that round's member.</p>
 ${error ? html`<p class="error" role="alert">${error}</p>` : ""}

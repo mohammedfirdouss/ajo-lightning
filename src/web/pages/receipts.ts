@@ -9,7 +9,7 @@ export function receiptsPage(circle: Circle, rounds: readonly Round[], m: Money)
 	const paid = rounds.map((r) => ({ r, paid: (r.contributions as readonly Contribution[]).filter((c): c is Paid => c.state === "paid") })).filter((x) => x.paid.length > 0);
 	return layout(
 		"Receipts",
-		html`<p><a href="/">Back to ${circle.name}</a></p>
+		html`<p class="back"><a href="/">Back to ${circle.name}</a></p>
 <h1>Receipts</h1>
 <p class="mut">Each payment has a receipt on Nostr, signed by the circle's key and tagged <code>ajo-receipt</code>. A receipt holds the round, the member's id, the amount and the payment hash, never a name.</p>
 <dl class="key"><dt>Circle key</dt><dd><code>${circle.pubkey}</code></dd><dt>Relay</dt><dd><code>${circle.relayUrl}</code></dd></dl>

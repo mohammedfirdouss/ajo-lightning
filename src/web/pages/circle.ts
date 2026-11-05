@@ -2,6 +2,7 @@ import { html } from "hono/html";
 import type { Round } from "../../round/types.ts";
 import { type Money, roundWord } from "../copy.ts";
 import type { Circle } from "../source.ts";
+import { beadRing } from "./beads.ts";
 import { type Html, layout } from "./layout.ts";
 
 export const createPage = (error?: string) =>
@@ -25,11 +26,23 @@ export const per = { weekly: "a week", monthly: "a month" } as const;
 
 export function circlePage(circle: Circle, rounds: readonly Round[], m: Money): Html {
 	const names = new Map(circle.members.map((x) => [x.id, x.name]));
+	const done = new Set(rounds.filter((r) => r.phase === "complete").map((r) => r.payee));
+	const next = rounds.find((r) => r.phase !== "complete")?.payee;
 	const joinable = (rounds[0]?.phase ?? "scheduled") === "scheduled";
 	return layout(
 		circle.name,
 		html`<h1>${circle.name}</h1>
 <p class="mut">Each member pays ${m.sat(circle.contribution)} (${m.naira(circle.contribution)}) ${per[circle.cadence]}.</p>
+${
+	circle.members.length > 0
+		? html`<section class="prog">${beadRing(
+				circle.members.map((x) => ({ name: x.name, tone: done.has(x.id) ? "paid" : "open", payee: x.id === next })),
+				`Payout order: ${circle.members.map((x) => x.name).join(", ")}. ${done.size} of ${circle.members.length} paid out${next ? `, ${names.get(next)} is next` : ""}.`,
+				`${done.size} of ${circle.members.length}`,
+				"paid out",
+			)}<p class="mut">${next ? `Next, round ${circle.members.findIndex((x) => x.id === next) + 1} pays ${names.get(next)}.` : rounds.length > 0 ? "Everyone has been paid out." : `Round 1 will pay ${circle.members[0].name}.`}</p></section>`
+		: ""
+}
 <h2>Payout order</h2>
 ${
 	circle.members.length === 0

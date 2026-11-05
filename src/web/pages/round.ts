@@ -2,6 +2,7 @@ import { html } from "hono/html";
 import type { Round } from "../../round/types.ts";
 import { type Money, roundWord, status } from "../copy.ts";
 import type { Circle } from "../source.ts";
+import { beadRing } from "./beads.ts";
 import { type Html, layout } from "./layout.ts";
 
 const action: Partial<Record<Round["phase"], string>> = {
@@ -19,14 +20,19 @@ export function roundPage(circle: Circle, round: Round, m: Money): Html {
 	const label = action[round.phase];
 	return layout(
 		`Round ${round.id}`,
-		html`<p><a href="/">Back to ${circle.name}</a></p>
+		html`<p class="back"><a href="/">Back to ${circle.name}</a></p>
 <h1>Round ${round.id} pays ${names.get(round.payee)}</h1>
 <p class="mut">${round.contributions.length} members pay ${m.sat(round.contribution)} (${m.naira(round.contribution)}) each.</p>
 <div id="live" data-live="${live ? "1" : "0"}" aria-live="polite">
 <section class="prog">
+${beadRing(
+	circle.members.map((x) => (x.id === round.payee ? { name: x.name, tone: "open", payee: true } : { name: x.name, tone: rows.find((r) => r.c.payer === x.id)?.s.tone ?? "open" })),
+	`${names.get(round.payee)} is paid this round. ${paid} of ${rows.length} members have paid.`,
+	`${paid} of ${rows.length}`,
+	"have paid",
+)}
 <p class="big">${m.sat(paid * round.contribution)} of ${m.sat(total)}</p>
 <p class="mut">${m.naira(paid * round.contribution)} of ${m.naira(total)}</p>
-<progress value="${paid}" max="${rows.length}" aria-label="Members paid">${paid} of ${rows.length}</progress>
 <p><b class="phase">${roundWord[round.phase]}</b> · ${paid} paid · ${count("waiting")} waiting · ${count("notpaid")} not paid</p>
 </section>
 <ul class="rows">${rows.map(
