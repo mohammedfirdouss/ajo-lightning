@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Starts bitcoind, the relay, the router, and MEMBERS member hubs (default 5), then runs the seed in the
+# foreground. Exits with the seed's status. Fewer members start fewer hubs, so MEMBERS=3 saves RAM.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+n=${MEMBERS:-5}
+[[ $n =~ ^[2-5]$ ]] || { echo "MEMBERS must be 2 to 5, got $n" >&2; exit 2; }
+docker compose up -d bitcoind relay router $(seq 1 "$n" | sed 's/^/member/')
+MEMBERS=$n docker compose up --build --no-deps --exit-code-from seed seed
