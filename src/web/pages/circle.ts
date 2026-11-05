@@ -13,7 +13,7 @@ const passcodeField = (hint: string, autocomplete: "new-password" | "current-pas
 
 export const passcodeToEnter = passcodeField("The passcode the circle's organiser shared with you.", "current-password");
 
-/** `capSat` is what each demo wallet may pay a month, on the demo stack only. */
+/** `capSat` is what each demo wallet may pay a week, on the demo stack only. */
 export const createPage = ({ error, capSat }: { error?: string; capSat?: Sats } = {}) =>
 	layout(
 		"Start a circle",
@@ -23,7 +23,7 @@ ${error ? html`<p class="error" role="alert">${error}</p>` : ""}
 <form method="post" action="/circle" class="stack">
 <label>Circle name <input name="name" required maxlength="40" autocomplete="off"></label>
 <label>Each member pays, in sats <input name="contribution" required inputmode="numeric" pattern="[0-9]+" value="${capSat === undefined ? 1000 : Math.min(1000, maxContribution(capSat))}">
-${capSat === undefined ? "" : html`<span class="hint">The demo wallets can each pay up to ${capSat} sat a month.</span>`}</label>
+${capSat === undefined ? "" : html`<span class="hint">The demo wallets can each pay up to ${capSat} sat a week.</span>`}</label>
 <fieldset><legend>How often</legend>
 <label class="choice"><input type="radio" name="cadence" value="weekly"> Every week</label>
 <label class="choice"><input type="radio" name="cadence" value="monthly" checked> Every month</label>

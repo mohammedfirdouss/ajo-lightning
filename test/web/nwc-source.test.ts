@@ -5,17 +5,17 @@ import { tmpdir } from "node:os";
 import { test } from "node:test";
 import { roundId, sats } from "../../src/round/types.ts";
 import { openStore } from "../../src/store/sqlite.ts";
-import type { LinkInfo } from "../../src/wallet/nwc.ts";
+import type { LinkInfo, Renewal } from "../../src/wallet/nwc.ts";
 import { checkLinks, nwcSource } from "../../src/web/nwc-source.ts";
 import { lock } from "../../src/web/passcode.ts";
-import { nwcLink } from "../../src/web/source.ts";
+import { type Cadence, nwcLink } from "../../src/web/source.ts";
 
 const PAY: LinkInfo = { methods: ["pay_invoice", "get_info", "get_budget"], budget: { totalSat: 1010, usedSat: 0, renewal: "monthly" } };
 const RECEIVE: LinkInfo = { methods: ["make_invoice", "make_hold_invoice", "settle_hold_invoice", "cancel_hold_invoice", "lookup_invoice", "get_info"] };
 const link = () => nwcLink(`nostr+walletconnect://${randomBytes(32).toString("hex")}?relay=ws%3A%2F%2Frelay%3A8080&secret=${randomBytes(32).toString("hex")}`) ?? assert.fail();
 
 test("link checks refuse a receive link that can pay, a pay link that can invoice, and a wallet that does not answer", () => {
-	const c = sats(1000);
+	const c = { contribution: sats(1000), cadence: "monthly" as const };
 	const reason = (pay: LinkInfo | undefined, receive: LinkInfo | undefined) => {
 		const r = checkLinks(pay, receive, c);
 		return r.ok ? "ok" : r.reason;
@@ -31,14 +31,14 @@ test("link checks refuse a receive link that can pay, a pay link that can invoic
 
 test("link checks refuse a receive link without the hold invoice methods", () => {
 	for (const method of ["make_hold_invoice", "settle_hold_invoice", "cancel_hold_invoice", "lookup_invoice"]) {
-		const r = checkLinks(PAY, { methods: RECEIVE.methods.filter((m) => m !== method) }, sats(1000));
+		const r = checkLinks(PAY, { methods: RECEIVE.methods.filter((m) => m !== method) }, { contribution: sats(1000), cadence: "monthly" });
 		assert.match(r.ok ? "ok" : r.reason, /^Your receive link cannot create, settle and cancel hold invoices/, method);
 	}
 });
 
 test("link checks want a renewing pay limit with room for the contribution and its routing fee", () => {
 	const reason = (budget: LinkInfo["budget"], contribution = 1000) => {
-		const r = checkLinks({ ...PAY, budget }, RECEIVE, sats(contribution));
+		const r = checkLinks({ ...PAY, budget }, RECEIVE, { contribution: sats(contribution), cadence: "monthly" });
 		return r.ok ? "ok" : r.reason;
 	};
 	const monthly = (totalSat: number, usedSat = 0) => ({ totalSat, usedSat, renewal: "monthly" as const });
@@ -50,6 +50,19 @@ test("link checks want a renewing pay limit with room for the contribution and i
 	assert.equal(reason(monthly(5050), 5000), "ok");
 	assert.match(reason(monthly(1010, 1001)), /has 9 sat left of its limit until it renews/);
 	assert.match(reason({ totalSat: 1_000_000, usedSat: 0, renewal: "never" }), /limit never renews/);
+});
+
+test("link checks want a pay limit that renews at least as often as the circle pays", () => {
+	const verdict = (renewal: Renewal | undefined, cadence: Cadence) => {
+		const r = checkLinks({ ...PAY, budget: { totalSat: 1010, usedSat: 0, renewal: renewal as Renewal } }, RECEIVE, { contribution: sats(1000), cadence });
+		return r.ok ? "ok" : r.reason;
+	};
+	for (const renewal of ["daily", "weekly", "monthly"] as const) assert.equal(verdict(renewal, "monthly"), "ok", renewal);
+	for (const renewal of ["daily", "weekly"] as const) assert.equal(verdict(renewal, "weekly"), "ok", renewal);
+	assert.match(verdict("monthly", "weekly"), /^Your pay link's limit renews monthly, less often than this circle pays, so it runs out after one round\. Make a new pay link with a limit that renews each week/);
+	assert.match(verdict("yearly", "monthly"), /renews yearly, less often than this circle pays.* renews each month/);
+	assert.match(verdict("never", "weekly"), /limit never renews/);
+	assert.match(verdict(undefined, "monthly"), /limit does not say when it renews/);
 });
 
 async function source(info: (uri: string) => Promise<LinkInfo>) {

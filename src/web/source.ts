@@ -40,7 +40,7 @@ export type Circle = {
 export type NewCircle = Omit<Circle, "members" | "pubkey" | "relayUrl">;
 export type Links = { pay: NwcLink; receive: NwcLink };
 export type NewMember = Links & { name: string };
-/** The seeded regtest wallets, and the most each one may pay a month. */
+/** The seeded regtest wallets, and the most each one may pay a week. */
 export type Demo = { wallets: readonly Links[]; capSat: Sats };
 export type Joined = { ok: true; member: Member } | { ok: false; reason: string };
 

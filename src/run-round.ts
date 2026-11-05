@@ -30,7 +30,7 @@ const hashOf = (p: Preimage) => paymentHash(createHash("sha256").update(Buffer.f
 /** Only the runner holds the preimage, so no payment lands on an invoice it has failed. The cancel that frees a late payment may only reach the hub on a rerun. */
 const CLOSED = "Ajo will not take a payment on this invoice now that it has expired, so any sats still on their way go back to this member's wallet.";
 const PLAIN: Record<FailReason, string> = {
-	QUOTA_EXCEEDED: "This payment is over the monthly spending cap on this member's wallet connection.",
+	QUOTA_EXCEEDED: "This payment is over the spending limit on this member's pay link until it renews.",
 	INSUFFICIENT_BALANCE: "This member's wallet did not have enough sats for the payment.",
 	PAYMENT_FAILED: `The wallet reported a failed payment. ${CLOSED}`,
 	TIMEOUT: `The wallet did not answer in time. ${CLOSED}`,

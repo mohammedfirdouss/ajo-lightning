@@ -19,7 +19,7 @@ MAX_C=$(( (PUSH_SAT - 10000) / (N - 1) ))
 }
 # Alby Hub has no hold invoice scope. make_invoice also grants make_hold_invoice, settle_hold_invoice and cancel_hold_invoice.
 SPEC=$(jq -nc --argjson b "$BUDGET" '{
-  pay: {scopes: ["pay_invoice"], maxAmountSat: $b, budgetRenewal: "monthly"},
+  pay: {scopes: ["pay_invoice"], maxAmountSat: $b, budgetRenewal: "weekly"},
   receive: {scopes: ["lookup_invoice", "make_invoice"], maxAmountSat: 0, budgetRenewal: "never"}
 }')
 MEMBER_HUBS=$(for i in $(seq 1 "$N"); do echo "member$i"; done | xargs)
@@ -199,4 +199,4 @@ jq -n --argjson c "$C" --argjson b "$BUDGET" --arg relay "ws://127.0.0.1:$HOST_R
   '{contributionSat: $c, budgetSat: $b, relayUrl: $relay, router: {name: "router", url: $rurl, token: $rtok}, members: $m}' > $STATE.tmp
 chmod 600 $STATE.tmp
 mv $STATE.tmp $STATE
-stage "seed done: router and $N member hubs each have an active channel, pay budget $BUDGET sat a month for a $C sat contribution"
+stage "seed done: router and $N member hubs each have an active channel, pay budget $BUDGET sat a week for a $C sat contribution"

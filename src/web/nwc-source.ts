@@ -3,8 +3,8 @@ import { circlePubkey } from "../receipts/nostr.ts";
 import { type RunEnv, runRound } from "../run-round.ts";
 import { roundId, type Sats, sats } from "../round/types.ts";
 import type { Store } from "../store/sqlite.ts";
-import type { LinkInfo } from "../wallet/nwc.ts";
-import { type Circle, type Demo, type Member, type NewCircle, payBudget, type RoundSource, scheduled } from "./source.ts";
+import type { LinkInfo, Renewal } from "../wallet/nwc.ts";
+import { type Cadence, type Circle, type Demo, type Member, type NewCircle, payBudget, type RoundSource, scheduled } from "./source.ts";
 
 export type NwcSourceEnv = {
 	store: Store;
@@ -22,9 +22,12 @@ const fix = (what: string) => `Make a new ${what} in your wallet and paste it ag
 export type LinkCheck = { ok: true; capSat: Sats } | { ok: false; reason: string };
 
 const HOLD = ["make_hold_invoice", "settle_hold_invoice", "cancel_hold_invoice", "lookup_invoice"];
+/** A limit that renews less often than the circle pays runs out after one round. */
+const RENEWS: Record<Cadence, readonly Renewal[]> = { weekly: ["daily", "weekly"], monthly: ["daily", "weekly", "monthly"] };
+const PERIOD = { weekly: "week", monthly: "month" } as const;
 
 /** Judges a pair of links by what their wallets report, in words a member can act on. `undefined` means no answer. */
-export function checkLinks(pay: LinkInfo | undefined, receive: LinkInfo | undefined, contribution: Sats): LinkCheck {
+export function checkLinks(pay: LinkInfo | undefined, receive: LinkInfo | undefined, { contribution, cadence }: { contribution: Sats; cadence: Cadence }): LinkCheck {
 	const no = (reason: string): LinkCheck => ({ ok: false, reason });
 	const need = payBudget(contribution);
 	if (!pay) return no("Ajo could not reach the wallet behind your pay link. Check that your wallet is online, then try again.");
@@ -35,7 +38,10 @@ export function checkLinks(pay: LinkInfo | undefined, receive: LinkInfo | undefi
 	if (!pay.methods.includes("pay_invoice")) return no(`Your pay link cannot pay. ${fix("pay link with permission to pay")}`);
 	const { budget } = pay;
 	if (!budget) return no(`Your pay link has no spending limit. ${fix("pay link with a limit")}`);
-	if (budget.renewal === "never") return no(`Your pay link's limit never renews, so it runs out after one round. ${fix("pay link with a limit that renews each week or month")}`);
+	if (!RENEWS[cadence].includes(budget.renewal)) {
+		const when = budget.renewal === "never" ? "never renews" : budget.renewal ? `renews ${budget.renewal}, less often than this circle pays` : "does not say when it renews";
+		return no(`Your pay link's limit ${when}, so it runs out after one round. ${fix(`pay link with a limit that renews each ${PERIOD[cadence]}`)}`);
+	}
 	if (budget.totalSat < need) {
 		return no(`Your pay link's limit of ${budget.totalSat} sat is less than the ${need} sat each round needs, which is ${contribution} sat plus up to ${need - contribution} sat in routing fees. ${fix("pay link with a higher limit")}`);
 	}
@@ -74,7 +80,7 @@ export function nwcSource({ store, circleKey, relayUrl, publish, connect, linkIn
 			const early = refusal();
 			if (early) return { ok: false, reason: early };
 			const [payInfo, receiveInfo] = await Promise.all([reach(pay), reach(receive)]);
-			const check = checkLinks(payInfo, receiveInfo, c.contribution);
+			const check = checkLinks(payInfo, receiveInfo, c);
 			if (!check.ok) return check;
 			const late = refusal();
 			if (late) return { ok: false, reason: late };

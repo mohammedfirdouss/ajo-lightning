@@ -38,7 +38,7 @@ Before launch, run `docker compose ls -a | grep "$COMPOSE_PROJECT_NAME"` and req
 cap up ./scripts/up # add MEMBERS=3 in front to start 3 member hubs instead of 5
 ```
 
-Ready means the transcript holds a line such as `seed-1  | [13s] seed done: router and 5 member hubs each have an active channel, pay budget 1010 sat a month for a 1000 sat contribution` and ends with `exit=0`. A cold boot takes about 15 seconds with images pulled. The first run also builds the small `seed` image. A bare `docker compose up` prints the same `seed done` line in the foreground, then starts the `web` service and keeps running.
+Ready means the transcript holds a line such as `seed-1  | [13s] seed done: router and 5 member hubs each have an active channel, pay budget 1010 sat a week for a 1000 sat contribution` and ends with `exit=0`. A cold boot takes about 15 seconds with images pulled. The first run also builds the small `seed` image. A bare `docker compose up` prints the same `seed done` line in the foreground, then starts the `web` service and keeps running.
 
 `scripts/up` does not start the pages. To serve them, run:
 

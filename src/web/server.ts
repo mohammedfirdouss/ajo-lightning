@@ -108,7 +108,7 @@ export function createApp(source: RoundSource, nairaPerSat: number, { remind = r
 		}
 		const cap = source.demo?.capSat;
 		if (cap !== undefined && payBudget(contribution) > cap) {
-			return fail(`On this demo stack each wallet can pay up to ${cap} sat a month, fee included. Choose ${maxContribution(cap)} sat or less.`);
+			return fail(`On this demo stack each wallet can pay up to ${cap} sat a week, fee included. Choose ${maxContribution(cap)} sat or less.`);
 		}
 		if (await source.circle()) return c.redirect("/", 303);
 		const start = new Date().toISOString().slice(0, 10);
