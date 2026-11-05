@@ -47,6 +47,8 @@ export class World {
 	readonly charged = new Map<MemberId, number>();
 	received = 0;
 	readonly calls = new Map<MemberId, Call>();
+	/** Payers whose last pay call has neither a recorded reply nor a lookup since, so the app cannot know its outcome. */
+	readonly unresolved = new Set<MemberId>();
 	readonly late: string[] = [];
 	readonly trace: string[] = [];
 	readonly payers: MemberId[];
@@ -109,6 +111,7 @@ export class World {
 	SendPay(payer: MemberId) {
 		const cmd = this.command("pay", payer);
 		this.must({ type: "paySent", payer });
+		this.unresolved.add(payer);
 		this.calls.set(payer, { at: "sent", hash: cmd.invoice.paymentHash });
 	}
 
@@ -144,6 +147,7 @@ export class World {
 	RecordReply(payer: MemberId) {
 		const { error } = this.call(payer, "replied") as Extract<Call, { at: "replied" }>;
 		this.calls.delete(payer);
+		this.unresolved.delete(payer);
 		this.must(error ? { type: "payReplied", payer, error } : { type: "payReplied", payer });
 	}
 
@@ -151,6 +155,7 @@ export class World {
 		const cmd = this.command("lookup", payer);
 		const state = this.invoices.get(cmd.invoice.paymentHash)?.state;
 		if (!state) throw new Error(`the payee's wallet never made ${cmd.invoice.paymentHash}`);
+		this.unresolved.delete(payer);
 		this.must({ type: "lookupReplied", payer, invoice: state });
 	}
 
@@ -180,7 +185,10 @@ export class World {
 		return this.feed({ type: "close" });
 	}
 
-	/** Judges the model's five safety rules on what the wallets hold, and returns the names of the broken ones. */
+	/**
+	 * Judges the model's five safety rules on what the wallets hold, plus NoPayWhileUnresolved, and returns the broken ones.
+	 * Reusing one invoice hides a blind second pay from the wallet rules, so NoPayWhileUnresolved watches the commands instead.
+	 */
 	brokenRules(): string[] {
 		const paidFor = (p: MemberId) => (this.charged.get(p) ?? 0) > 0;
 		const { phase, contributions } = this.round;
@@ -192,6 +200,7 @@ export class World {
 		if (phase === "complete" && !this.payers.every(paidFor)) broken.push("CompleteMeansEveryonePaid");
 		if (ended && contributions.some((c) => (c.state === "paid") !== paidFor(c.payer))) broken.push("RecordMatchesWalletAtEnd");
 		if (contributions.some((c) => refused(c) && paidFor(c.payer))) broken.push("RefusedMeansNoMoneyMoved");
+		if (next(this.round).some((cmd) => cmd.type === "pay" && this.unresolved.has(cmd.payer))) broken.push("NoPayWhileUnresolved");
 		return broken;
 	}
 

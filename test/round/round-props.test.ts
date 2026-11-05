@@ -20,7 +20,7 @@ function rng(seed: number) {
 }
 const pick = <T>(rand: () => number, xs: readonly T[]) => xs[Math.floor(rand() * xs.length)] as T;
 
-test(`the five model rules hold and every round ends, over ${RUNS} random runs of the model's actions`, () => {
+test(`the five model rules and NoPayWhileUnresolved hold and every round ends, over ${RUNS} random runs of the model's actions`, () => {
 	const seen = new Set<ModelAction>();
 	for (let run = 0; run < RUNS; run++) {
 		const seed = SEED * 1_000_003 + run;
