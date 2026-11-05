@@ -17,6 +17,7 @@ MAX_C=$(( (PUSH_SAT - 10000) / (N - 1) ))
   echo "CONTRIBUTION must be 11 to $MAX_C sat with $N members, so a pay budget covers one contribution but not two and round 1 fits the router's $PUSH_SAT sat on the payee's channel; got $C" >&2
   exit 2
 }
+# Alby Hub has no hold invoice scope. make_invoice also grants make_hold_invoice, settle_hold_invoice and cancel_hold_invoice.
 SPEC=$(jq -nc --argjson b "$BUDGET" '{
   pay: {scopes: ["pay_invoice"], maxAmountSat: $b, budgetRenewal: "monthly"},
   receive: {scopes: ["lookup_invoice", "make_invoice"], maxAmountSat: 0, budgetRenewal: "never"}

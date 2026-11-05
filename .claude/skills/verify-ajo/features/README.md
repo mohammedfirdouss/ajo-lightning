@@ -35,4 +35,5 @@ Each feature file has an H1, one paragraph on the user-visible behavior, and fou
 - [Join a circle](./web-join.md) covers the join form, the link checks, the demo wallets, and the passcode limit.
 - [Collect a round](./web-round.md) covers the round page, live rows, the plain failure reasons, and the reminders on each unpaid row.
 - [Read the receipts](./web-receipts.md) covers the receipts page.
+- [Hold a payment until Ajo settles it](./hold-invoice.md) covers the hold invoice, a payee hub that stops answering, a payment that arrives after expiry, and a runner killed mid-round.
 - Reminders need no stack. `scripts/remind --lang fr --amount 4000 --due 2026-11-12 --member 3` prints one, and `npm test -- reminders` covers it. `ANTHROPIC_API_KEY` is optional, and without it the script falls back to a template. The Yoruba and Wolof templates await a native-speaker check.
