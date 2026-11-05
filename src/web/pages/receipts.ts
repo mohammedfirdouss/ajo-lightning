@@ -17,11 +17,11 @@ ${
 	paid.length === 0
 		? html`<p>No payments yet.</p>`
 		: paid.map(
-				({ r, paid }) => html`<h2>Round ${r.id}, paid to ${names.get(r.payee)}</h2>
+				({ r, paid }) => html`<section class="card"><h2>Round ${r.id}, paid to ${names.get(r.payee)}</h2>
 <ul class="receipts">${paid.map(
 					(c) =>
 						html`<li><b>${names.get(c.payer)}</b> <span class="mut">(${c.payer})</span> paid ${m.sat(c.invoice.amount)}<code>${c.invoice.paymentHash}</code></li>`,
-				)}</ul>`,
+				)}</ul></section>`,
 			)
 }`,
 	);

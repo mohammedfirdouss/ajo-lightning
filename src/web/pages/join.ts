@@ -11,7 +11,7 @@ export const joinPage = (circle: Circle, m: Money, error?: string, name = "") =>
 <h1>Join ${circle.name}</h1>
 <p class="mut">You pay ${m.sat(circle.contribution)} (${m.naira(circle.contribution)}) ${per[circle.cadence]}, straight to that round's member.</p>
 ${error ? html`<p class="error" role="alert">${error}</p>` : ""}
-<form method="post" action="/join" class="stack">
+<form method="post" action="/join" class="stack card">
 <label>Your name <input name="name" required maxlength="40" autocomplete="name" value="${name}"></label>
 <label>Pay link from your wallet
 <input type="password" name="pay" required autocomplete="off" spellcheck="false" data-scan placeholder="nostr+walletconnect://…">
