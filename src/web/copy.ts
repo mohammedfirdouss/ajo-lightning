@@ -34,7 +34,6 @@ const ngnFmt = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NG
 
 export type Money = { sat: (n: number) => string; naira: (n: number) => string; rateNote: string };
 
-/** The naira rate is a fixed demo value, never a live price, so every page labels it as one. */
 export function money(nairaPerSat: number): Money {
 	return {
 		sat: (n) => `${satFmt.format(n)} sat`,

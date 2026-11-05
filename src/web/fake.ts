@@ -28,10 +28,11 @@ export function fakeSource({ stepMs = 0, spentSat = {} }: FakeOptions = {}): Rou
 		return newRound({ id: n, payee, payers: ms.map((x) => x.id).filter((x) => x !== payee), contribution: circle.contribution });
 	};
 
-	const feed = (n: RoundId, event: RoundEvent) => {
-		const out = apply(rounds.get(n) as Round, event);
+	const feed = (round: Round, event: RoundEvent) => {
+		const out = apply(round, event);
 		if (!out.ok) throw new Error(`fake runner fed a rejected event: ${out.reason}`);
-		rounds.set(n, out.round);
+		rounds.set(round.id, out.round);
+		return out.round;
 	};
 
 	const pay = (payer: MemberId, invoice: Invoice): RoundEvent => {
@@ -93,18 +94,17 @@ export function fakeSource({ stepMs = 0, spentSat = {} }: FakeOptions = {}): Rou
 		},
 		round: async (n) => rounds.get(n) ?? schedule(n),
 		collect: async (n) => {
-			const first = rounds.get(n) ?? schedule(n);
-			if (!first) throw new RangeError(`round ${n} is not in this circle`);
-			rounds.set(n, first);
-			if (first.phase === "scheduled") feed(n, { type: "start" });
-			if (first.phase === "partial") feed(n, { type: "rerun" });
-			for (let cmds = next(rounds.get(n) as Round); cmds.length > 0; cmds = next(rounds.get(n) as Round)) {
+			let r = rounds.get(n) ?? schedule(n);
+			if (!r) throw new RangeError(`round ${n} is not in this circle`);
+			if (r.phase === "scheduled") r = feed(r, { type: "start" });
+			if (r.phase === "partial") r = feed(r, { type: "rerun" });
+			for (let cmds = next(r); cmds.length > 0; cmds = next(r)) {
 				for (const event of run(cmds[0])) {
 					await sleep(stepMs);
-					feed(n, event);
+					r = feed(r, event);
 				}
 			}
-			return report(rounds.get(n) as Round);
+			return report(r);
 		},
 	};
 }

@@ -4,14 +4,14 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { secureHeaders } from "hono/secure-headers";
 import type { RoundReport } from "../../scripts/e2e.ts";
-import { type RoundId, roundId, sats } from "../round/types.ts";
+import { roundId, sats } from "../round/types.ts";
 import { money } from "./copy.ts";
 import { fakeSource } from "./fake.ts";
 import { circlePage, createPage } from "./pages/circle.ts";
 import { joinPage } from "./pages/join.ts";
 import { receiptsPage } from "./pages/receipts.ts";
 import { roundPage } from "./pages/round.ts";
-import { type Cadence, nwcLink, type RoundSource } from "./source.ts";
+import { nwcLink, type RoundSource } from "./source.ts";
 
 const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 const name = (v: unknown) => {
@@ -62,7 +62,7 @@ export function createApp(source: RoundSource, nairaPerSat: number) {
 			return c.html(createPage("Give the circle a name, a whole number of sats from 1 to 1,000,000, and how often members pay."), 422);
 		}
 		if (await source.circle()) return c.redirect("/", 303);
-		await source.create({ name: n, contribution: sats(contribution), cadence: cadence as Cadence });
+		await source.create({ name: n, contribution: sats(contribution), cadence });
 		return c.redirect("/", 303);
 	});
 
@@ -102,7 +102,7 @@ export function createApp(source: RoundSource, nairaPerSat: number) {
 	app.post("/round/:n/collect", async (c) => {
 		const found = await roundParam(c.req.param("n"));
 		if (!found) return c.notFound();
-		const n: RoundId = found.round.id;
+		const n = found.round.id;
 		if (!collecting.has(n) && found.round.phase !== "complete") {
 			const run = source.collect(n).finally(() => collecting.delete(n));
 			run.catch((e: Error) => console.error(`round ${n} stopped: ${e.message}`));
