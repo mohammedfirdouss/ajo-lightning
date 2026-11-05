@@ -34,14 +34,14 @@ export function loadStack(): Stack {
 
 function parseStack(v: Stack): Stack {
 	const hubOk = (h: Hub) => typeof h?.name === "string" && typeof h.url === "string" && typeof h.token === "string";
-	const connOk = (c: Connection) => typeof c?.id === "number" && c.uri.startsWith("nostr+walletconnect://");
+	const connOk = (c: Connection) => typeof c?.id === "number" && typeof c.uri === "string" && c.uri.startsWith("nostr+walletconnect://");
 	const ok =
 		Number.isInteger(v?.contributionSat) &&
 		Number.isInteger(v.budgetSat) &&
 		typeof v.relayUrl === "string" &&
 		hubOk(v.router) &&
 		Array.isArray(v.members) &&
-		v.members.length >= 2 &&
+		v.members.length >= 3 &&
 		v.members.every((m) => hubOk(m) && connOk(m.pay) && connOk(m.receive));
 	if (!ok) throw new Error("connections.json in the state volume has an unexpected shape, rerun the seed");
 	return v;
@@ -60,3 +60,30 @@ export const channels = (hub: Hub) => hubGet<Channel[]>(hub, "/api/channels");
 export async function balanceMsat(hub: Hub): Promise<number> {
 	return (await channels(hub)).reduce((sum, c) => sum + c.localBalanceMsat, 0);
 }
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+export const sat = (msat: number) => `${msat / 1000} sat`;
+
+export async function expectDelta(hub: Hub, beforeMsat: number, deltaMsat: number, timeoutMs = 10_000) {
+	const deadline = Date.now() + timeoutMs;
+	let now = await balanceMsat(hub);
+	while (now - beforeMsat !== deltaMsat && Date.now() < deadline) {
+		await sleep(250);
+		now = await balanceMsat(hub);
+	}
+	if (now - beforeMsat !== deltaMsat) {
+		throw new Error(`${hub.name} moved by ${sat(now - beforeMsat)}, expected ${sat(deltaMsat)}`);
+	}
+}
+
+export async function expectSteady(hub: Hub, msat: number, forMs = 3_000) {
+	const deadline = Date.now() + forMs;
+	do {
+		const now = await balanceMsat(hub);
+		if (now !== msat) throw new Error(`${hub.name} moved by ${sat(now - msat)}, expected no change`);
+		await sleep(250);
+	} while (Date.now() < deadline);
+}
+
+export const snapshot = async (hubs: Hub[]) =>
+	new Map(await Promise.all(hubs.map(async (h) => [h.name, await balanceMsat(h)] as const)));
