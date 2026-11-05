@@ -17,7 +17,7 @@ On the circle page, tap "Round 1 pays Ada", type the passcode, then tap "Collect
 
 ## Driving it with scripts and the hub API
 
-Start the server per [web-circle.md](web-circle.md), join five members, open `/round/1`, fill `getByLabel("Circle passcode")`, and press the button. On the stack, read every member hub's balance before and after. The payee gains 4000 sat, and each payer loses 1000 sat plus a 1 sat routing fee. Wait for `#live[data-live="0"]`, which marks a round that has stopped collecting. Read each row from `li.row[data-member="memberN"]`, whose class is `paid`, `waiting` or `notpaid`.
+Start the server per [web-circle.md](web-circle.md), join five members, open `/round/1`, fill `getByLabel("Circle passcode")`, and press the button. On the stack, read every member hub's balance before and after. The payee gains 4000 sat, and each payer loses 1000 sat plus a 1 sat routing fee. Wait for `#live[data-live="0"]`, which marks a round that has stopped collecting. Read each payer's row by the name in its `<b>`, as in `page.locator("li.row", { has: page.locator("b", { hasText: /^Chidi$/ }) })`. Its class is `paid`, `waiting` or `notpaid`. The `data-member` attribute is `memberN` on the fake source but a pseudonym such as `a22a5f23b167edda` on the stack, so do not select by it there.
 
 To make member3 go over their limit on the fake source, start it with `AJO_FAKE_SPENT=member3:1000`. `AJO_FAKE_STEP_MS` sets the delay per wallet step, 400 ms by default, so rows turn green one by one.
 
