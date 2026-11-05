@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { apply, newRound, next } from "../../src/round/round.ts";
 import {
 	type Applied,
@@ -6,9 +7,13 @@ import {
 	type Invoice,
 	type MemberId,
 	memberId,
+	type Preimage,
+	paymentHash,
+	preimage,
 	type Round,
 	type RoundEvent,
 	roundId,
+	type Sats,
 	sats,
 } from "../../src/round/types.ts";
 
@@ -36,6 +41,15 @@ export const REFUSALS = ["QUOTA_EXCEEDED", "INSUFFICIENT_BALANCE"] as const sati
 const C = 1000;
 export const EXPIRES_AT = 1_800_000_000;
 
+const sha256 = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
+
+/** A payee invoice whose hash commits to a preimage derived from `tag`, so runs replay the same hashes. */
+export function invoiceFor(tag: string, amount: Sats = sats(C)): { invoice: Invoice; preimage: Preimage } {
+	const pre = preimage(sha256(Buffer.from(tag)));
+	const hash = paymentHash(sha256(Buffer.from(pre, "hex")));
+	return { invoice: { paymentHash: hash, bolt11: `lnbcrt-${tag}`, amount, expiresAt: EXPIRES_AT }, preimage: pre };
+}
+
 type Call = { at: "sent" | "routing"; hash: string } | { at: "replied"; hash: string; error?: FailReason };
 type Move = { action: ModelAction; run: () => void };
 
@@ -44,7 +58,7 @@ export class World {
 	round: Round;
 	up = true;
 	crashes = 0;
-	readonly invoices = new Map<string, { payer: MemberId; state: "open" | "settled" | "expired" }>();
+	readonly invoices = new Map<string, { payer: MemberId; preimage: Preimage; state: "open" | "settled" | "expired" }>();
 	readonly charged = new Map<MemberId, number>();
 	received = 0;
 	readonly calls = new Map<MemberId, Call>();
@@ -103,9 +117,8 @@ export class World {
 
 	MakeInvoice(payer: MemberId) {
 		const cmd = this.command("makeInvoice", payer);
-		const paymentHash = `${payer}-${this.invoices.size}`;
-		this.invoices.set(paymentHash, { payer, state: "open" });
-		const invoice: Invoice = { paymentHash, bolt11: `lnbcrt${paymentHash}`, amount: cmd.amount, expiresAt: EXPIRES_AT };
+		const { invoice, preimage } = invoiceFor(`${payer}-${this.invoices.size}`, cmd.amount);
+		this.invoices.set(invoice.paymentHash, { payer, preimage, state: "open" });
 		this.must({ type: "invoiceMade", payer, invoice });
 	}
 
@@ -146,10 +159,12 @@ export class World {
 	}
 
 	RecordReply(payer: MemberId) {
-		const { error } = this.call(payer, "replied") as Extract<Call, { at: "replied" }>;
+		const { hash, error } = this.call(payer, "replied") as Extract<Call, { at: "replied" }>;
 		this.calls.delete(payer);
 		this.unresolved.delete(payer);
-		this.must(error ? { type: "payReplied", payer, error } : { type: "payReplied", payer });
+		const inv = this.invoices.get(hash);
+		if (!inv) throw new Error(`the payee's wallet never made ${hash}`);
+		this.must(error ? { type: "payReplied", payer, error } : { type: "payReplied", payer, preimage: inv.preimage });
 	}
 
 	LookupInvoice(payer: MemberId) {

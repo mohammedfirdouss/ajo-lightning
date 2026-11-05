@@ -1,4 +1,5 @@
-import type { Applied, Command, Contribution, Failed, MemberId, Paid, Round, RoundEvent, RoundId, Sats } from "./types.ts";
+import { createHash } from "node:crypto";
+import type { Applied, Command, Contribution, Failed, Invoice, MemberId, Paid, Round, RoundEvent, RoundId, Sats } from "./types.ts";
 
 export type RoundSetup = { id: RoundId; payee: MemberId; payers: readonly MemberId[]; contribution: Sats; maxTries?: number };
 
@@ -10,6 +11,9 @@ export function newRound({ id, payee, payers, contribution, maxTries = 2 }: Roun
 	const contributions = payers.map((payer) => ({ state: "pending" as const, payer }));
 	return { id, payee, contribution, maxTries, reruns: 0, phase: "scheduled", contributions };
 }
+
+const proves = (invoice: Invoice, preimage: unknown) =>
+	typeof preimage === "string" && createHash("sha256").update(Buffer.from(preimage, "hex")).digest("hex") === invoice.paymentHash;
 
 function step(c: Contribution, event: Extract<RoundEvent, { payer: MemberId }>, round: Round): Contribution | string {
 	switch (event.type) {
@@ -24,11 +28,12 @@ function step(c: Contribution, event: Extract<RoundEvent, { payer: MemberId }>, 
 			return { ...c, step: "paying", tries: c.tries + 1 };
 		case "payReplied":
 			if (c.state !== "invoiced" || c.step !== "paying") return `${c.payer} has no pay call outstanding`;
-			if (!event.error) return { state: "paid", payer: c.payer, invoice: c.invoice };
-			return { ...c, step: "lookup", lastErr: event.error };
+			if ("error" in event) return { ...c, step: "lookup", lastErr: event.error };
+			if (!proves(c.invoice, event.preimage)) return { ...c, step: "lookup", lastErr: "PAYMENT_FAILED" };
+			return { state: "paid", payer: c.payer, invoice: c.invoice, proof: { by: "preimage", preimage: event.preimage } };
 		case "lookupReplied":
 			if (c.state !== "invoiced" || (c.step !== "lookup" && c.step !== "lookupAtExpiry")) return `${c.payer} has no lookup to record`;
-			if (event.invoice === "settled") return { state: "paid", payer: c.payer, invoice: c.invoice };
+			if (event.invoice === "settled") return { state: "paid", payer: c.payer, invoice: c.invoice, proof: { by: "payeeLookup" } };
 			if (event.invoice === "expired") return { state: "failed", payer: c.payer, invoice: c.invoice, reason: c.lastErr ?? "TIMEOUT" };
 			return { ...c, step: c.tries < round.maxTries ? "pay" : "lookupAtExpiry" };
 	}

@@ -4,6 +4,8 @@ type Brand<T, B extends string> = T & { readonly [brand]: B };
 export type Sats = Brand<number, "Sats">;
 export type MemberId = Brand<string, "MemberId">;
 export type RoundId = Brand<number, "RoundId">;
+export type PaymentHash = Brand<string, "PaymentHash">;
+export type Preimage = Brand<string, "Preimage">;
 
 export function sats(n: number): Sats {
 	if (!Number.isSafeInteger(n) || n < 0) throw new RangeError(`not a whole number of sats: ${n}`);
@@ -20,11 +22,26 @@ export function roundId(n: number): RoundId {
 	return n as RoundId;
 }
 
-/** A wallet refusal moves no money. `PAYMENT_FAILED` and `TIMEOUT` only mean no reply proved a payment. */
+const HEX32 = /^[0-9a-f]{64}$/;
+
+export function paymentHash(s: string): PaymentHash {
+	if (!HEX32.test(s)) throw new RangeError(`not a payment hash: ${JSON.stringify(s)}`);
+	return s as PaymentHash;
+}
+
+export function preimage(s: string): Preimage {
+	if (!HEX32.test(s)) throw new RangeError(`not a preimage: ${JSON.stringify(s)}`);
+	return s as Preimage;
+}
+
+/**
+ * A wallet refusal moves no money. `PAYMENT_FAILED` and `TIMEOUT` only mean no reply proved a payment,
+ * which includes a success reply whose preimage does not hash to the invoice.
+ */
 export type FailReason = "QUOTA_EXCEEDED" | "INSUFFICIENT_BALANCE" | "PAYMENT_FAILED" | "TIMEOUT";
 
 /** `expiresAt` is in unix seconds, as NWC `make_invoice` returns it. */
-export type Invoice = { paymentHash: string; bolt11: string; amount: Sats; expiresAt: number };
+export type Invoice = { paymentHash: PaymentHash; bolt11: string; amount: Sats; expiresAt: number };
 
 export type Pending = { state: "pending"; payer: MemberId };
 /** `lastErr` never fails a contribution. Only a lookup that finds the invoice expired does. */
@@ -36,7 +53,9 @@ export type Invoiced = {
 	tries: number;
 	lastErr?: FailReason;
 };
-export type Paid = { state: "paid"; payer: MemberId; invoice: Invoice };
+/** A wallet can claim success, so a payment counts only with a preimage that hashes to the invoice, or the payee's word. */
+export type Proof = { by: "preimage"; preimage: Preimage } | { by: "payeeLookup" };
+export type Paid = { state: "paid"; payer: MemberId; invoice: Invoice; proof: Proof };
 export type Failed = { state: "failed"; payer: MemberId; invoice: Invoice; reason: FailReason };
 export type Contribution = Pending | Invoiced | Paid | Failed;
 
@@ -53,7 +72,8 @@ export type RoundEvent =
 	| { type: "start" }
 	| { type: "invoiceMade"; payer: MemberId; invoice: Invoice }
 	| { type: "paySent"; payer: MemberId }
-	| { type: "payReplied"; payer: MemberId; error?: FailReason }
+	| { type: "payReplied"; payer: MemberId; preimage: Preimage }
+	| { type: "payReplied"; payer: MemberId; error: FailReason }
 	| { type: "lookupReplied"; payer: MemberId; invoice: "open" | "settled" | "expired" }
 	| { type: "restarted" }
 	| { type: "rerun" }

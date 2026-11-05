@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { test } from "node:test";
 import { apply, next } from "../../src/round/round.ts";
-import { type FailReason, memberId, type RoundEvent, sats } from "../../src/round/types.ts";
-import { MODEL_ACTIONS, type ModelAction, World } from "./world.ts";
+import { type FailReason, memberId, type RoundEvent } from "../../src/round/types.ts";
+import { invoiceFor, MODEL_ACTIONS, type ModelAction, World } from "./world.ts";
 
 const RUNS = Number(process.env.ROUND_PROPS_RUNS ?? 1000);
 const SEED = Number(process.env.ROUND_PROPS_SEED ?? 1);
@@ -48,9 +49,13 @@ test(`the five model rules and NoPayWhileUnresolved hold and every round ends, o
 	);
 });
 
-test(`random events in any order never replace an invoice or reopen a settled contribution, over ${RUNS} runs`, () => {
+const hashOf = (preimage: string) => createHash("sha256").update(Buffer.from(preimage, "hex")).digest("hex");
+
+test(`random events in any order never pay without proof or reopen a settled contribution, over ${RUNS} runs`, () => {
 	const payers = ["member2", "member3"].map(memberId);
 	const reasons: FailReason[] = ["QUOTA_EXCEEDED", "INSUFFICIENT_BALANCE", "PAYMENT_FAILED", "TIMEOUT"];
+	const pool = Array.from({ length: 6 }, (_, k) => invoiceFor(`h${k}`));
+	const seen = new Set<string>();
 	for (let run = 0; run < RUNS; run++) {
 		const seed = SEED * 7_919 + run;
 		const rand = rng(seed);
@@ -60,9 +65,9 @@ test(`random events in any order never replace an invoice or reopen a settled co
 			const payer = pick(rand, payers);
 			const event = pick<RoundEvent>(rand, [
 				{ type: "start" },
-				{ type: "invoiceMade", payer, invoice: { paymentHash: `${payer}-${i}`, bolt11: "lnbcrt", amount: sats(1000), expiresAt: 1 } },
+				{ type: "invoiceMade", payer, invoice: pick(rand, pool).invoice },
 				{ type: "paySent", payer },
-				{ type: "payReplied", payer },
+				{ type: "payReplied", payer, preimage: pick(rand, pool).preimage },
 				{ type: "payReplied", payer, error: pick(rand, reasons) },
 				{ type: "lookupReplied", payer, invoice: pick(rand, ["open", "settled", "expired"] as const) },
 				{ type: "restarted" },
@@ -78,6 +83,18 @@ test(`random events in any order never replace an invoice or reopen a settled co
 			const after = round.contributions.find((c) => c.payer === payer);
 			if (before && before.state !== "pending") assert.deepEqual(after && "invoice" in after && after.invoice, before.invoice, why);
 			if (before?.state === "paid" || before?.state === "failed") assert.deepEqual(after, before, why);
+			if (after?.state === "paid" && before?.state !== "paid") {
+				seen.add(event.type);
+				const proved =
+					event.type === "lookupReplied"
+						? event.invoice === "settled" && after.proof.by === "payeeLookup"
+						: event.type === "payReplied" &&
+							"preimage" in event &&
+							hashOf(event.preimage) === after.invoice.paymentHash &&
+							after.proof.by === "preimage" &&
+							after.proof.preimage === event.preimage;
+				assert.ok(proved, `paid without proof, ${why}`);
+			}
 			if (round.phase === "complete")
 				assert.ok(
 					round.contributions.every((c) => c.state === "paid"),
@@ -86,4 +103,5 @@ test(`random events in any order never replace an invoice or reopen a settled co
 			if (round.phase !== "collecting") assert.deepEqual(next(round), [], why);
 		}
 	}
+	assert.deepEqual([...seen].sort(), ["lookupReplied", "payReplied"], "both proofs made a contribution paid at least once");
 });

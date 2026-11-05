@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { apply, newRound, next } from "../../src/round/round.ts";
-import { memberId, roundId, sats } from "../../src/round/types.ts";
-import { EXPIRES_AT, type ModelAction, World } from "./world.ts";
+import { memberId, preimage, type RoundEvent, roundId, sats } from "../../src/round/types.ts";
+import { EXPIRES_AT, invoiceFor, type ModelAction, World } from "./world.ts";
 
 const m2 = memberId("member2");
 const m3 = memberId("member3");
@@ -69,7 +69,7 @@ test("NoPayerChargedTwice: a retry cannot mint a second invoice, and every retry
 	w.MakeInvoice(m2);
 	const stored = w.contribution(m2);
 	assert.equal(stored.state, "invoiced");
-	const second = { paymentHash: "f".repeat(64), bolt11: "lnbcrt-second", amount: sats(1000), expiresAt: EXPIRES_AT };
+	const { invoice: second } = invoiceFor("second");
 	assert.equal(w.feed({ type: "invoiceMade", payer: m2, invoice: second }).ok, false);
 	assert.deepEqual(w.contribution(m2), stored);
 	w.SendPay(m2);
@@ -155,10 +155,58 @@ test("NoPayerChargedTwice: running a partial round again asks no wallet to pay",
 	assert.equal(w.charged.get(m2) ?? 0, 0);
 });
 
+test("CompleteMeansEveryonePaid: a pay reply without a preimage that hashes to the invoice is not proof", () => {
+	const w = new World(["member2"], 4);
+	w.Start();
+	w.MakeInvoice(m2);
+	const c = w.contribution(m2);
+	assert.equal(c.state, "invoiced");
+	// @ts-expect-error a success reply must carry a preimage
+	const bare: RoundEvent = { type: "payReplied", payer: m2 };
+	const lies: RoundEvent[] = [
+		bare,
+		{ type: "payReplied", payer: m2, preimage: invoiceFor("someone-else").preimage },
+		{ type: "payReplied", payer: m2, preimage: preimage("0".repeat(64)) },
+	];
+	lies.forEach((lie, i) => {
+		w.SendPay(m2);
+		assert.equal(w.feed(lie).ok, true);
+		assert.deepEqual(w.contribution(m2), { ...c, step: "lookup", tries: i + 1, lastErr: "PAYMENT_FAILED" }, JSON.stringify(lie));
+		assert.equal(w.EndRound().ok, false, "the round cannot close on a reply that proves nothing");
+		w.LookupInvoice(m2);
+	});
+	w.SendPay(m2);
+	w.WalletSends(m2);
+	w.PaymentArrives(m2);
+	w.RecordReply(m2);
+	const { preimage: real } = invoiceFor("member2-0");
+	assert.deepEqual(w.contribution(m2), { state: "paid", payer: m2, invoice: c.invoice, proof: { by: "preimage", preimage: real } });
+	assert.equal(w.EndRound().ok, true);
+	assert.equal(w.round.phase, "complete");
+});
+
+test("CompleteMeansEveryonePaid: the payee's lookup reporting settled is proof without a preimage", () => {
+	const w = new World();
+	w.Start();
+	w.MakeInvoice(m2);
+	w.SendPay(m2);
+	w.WalletSends(m2);
+	w.ReplyTimesOut(m2);
+	w.LatePaymentArrives();
+	w.RecordReply(m2);
+	w.LookupInvoice(m2);
+	assert.deepEqual(w.contribution(m2), {
+		state: "paid",
+		payer: m2,
+		invoice: invoiceFor("member2-0").invoice,
+		proof: { by: "payeeLookup" },
+	});
+});
+
 test("PayeeGetsAtMostThePot: an invoice for any amount but the contribution is rejected", () => {
 	const w = new World();
 	w.Start();
-	const invoice = { paymentHash: "a".repeat(64), bolt11: "lnbcrt", amount: sats(1001), expiresAt: EXPIRES_AT };
+	const { invoice } = invoiceFor("too-much", sats(1001));
 	assert.equal(w.feed({ type: "invoiceMade", payer: m2, invoice }).ok, false);
 	assert.equal(w.contribution(m2).state, "pending");
 });
