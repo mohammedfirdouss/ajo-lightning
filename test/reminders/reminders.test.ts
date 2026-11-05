@@ -72,9 +72,11 @@ test("a failed call falls back to the template", async () => {
 	assert.equal(bodies.length, 1, "no retry eats into the time limit");
 });
 
-test("a reply that drops the amount or due date falls back to the template", async () => {
-	const { client } = fakeClient(async () => reply("Please pay soon."));
-	assert.equal((await reminder(input("en"), client)).source, "template");
+test("a reply that drops the amount, due date, or seat falls back to the template", async () => {
+	for (const text of ["Please pay soon.", "Member 3, please pay soon.", "Hi, pay 4000 sats by 2026-11-12.", "Member 31, pay 4000 sats by 2026-11-12."]) {
+		const { client } = fakeClient(async () => reply(text));
+		assert.equal((await reminder(input("en"), client)).source, "template", text);
+	}
 });
 
 test("round state outside the domain is rejected before any reminder", () => {
