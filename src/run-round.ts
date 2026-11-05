@@ -5,8 +5,9 @@ import { fileURLToPath } from "node:url";
 import { circlePubkey, publish, receiptEvent } from "./receipts/nostr.ts";
 import { apply, newRound, next } from "./round/round.ts";
 import type { RoundReport } from "../scripts/e2e.ts";
+import { loadStack } from "../scripts/stack.ts";
 import { type Command, type FailReason, HEX32, type Invoice, type MemberId, type Round, type RoundEvent, type RoundId, roundId, sats } from "./round/types.ts";
-import { openStore, type Store } from "./store/sqlite.ts";
+import { openStore, pseudonym, type Store } from "./store/sqlite.ts";
 import { connect, EXPIRY_GRACE_SEC, type LookupState, type Wallet } from "./wallet/nwc.ts";
 
 /** A partial round may run again this many times. Each rerun only looks up stored invoices, so more cannot help. */
@@ -138,16 +139,15 @@ async function runRound(id: RoundId, stateDir: string): Promise<RoundReport> {
 		await publish(relayUrl, unpublished);
 		store.markPublished(unpublished);
 
-		const name = (m: MemberId) => member(m).name;
 		return {
 			round: id,
-			payee: name(round.payee),
+			payee: round.payee,
 			circlePubkey: circlePubkey(circleKey),
 			state: round.phase,
 			contributions: round.contributions.map((c) =>
 				c.state === "paid"
-					? { member: name(c.payer), state: "paid", paymentHash: c.invoice.paymentHash }
-					: { member: name(c.payer), state: "failed", paymentHash: c.invoice.paymentHash, error: PLAIN[c.reason] },
+					? { member: c.payer, state: "paid", paymentHash: c.invoice.paymentHash }
+					: { member: c.payer, state: "failed", paymentHash: c.invoice.paymentHash, error: PLAIN[c.reason] },
 			),
 		};
 	} finally {
@@ -159,21 +159,40 @@ async function runRound(id: RoundId, stateDir: string): Promise<RoundReport> {
 /** The keys live in `.env`, which compose hands to the app container. The first host run creates them. */
 function ensureKeys() {
 	const file = `${root}/.env`;
-	const text = existsSync(file) ? readFileSync(file, "utf8") : "";
+	let text = existsSync(file) ? readFileSync(file, "utf8") : "";
 	const missing = KEYS.filter((k) => !new RegExp(`^${k}=[0-9a-f]{64}$`, "m").test(text));
-	if (missing.length === 0) return;
-	const lines = missing.map((k) => `${k}=${randomBytes(32).toString("hex")}\n`).join("");
-	writeFileSync(file, `${text}${text && !text.endsWith("\n") ? "\n" : ""}${lines}`, { mode: 0o600 });
-	chmodSync(file, 0o600);
+	if (missing.length > 0) {
+		text += `${text && !text.endsWith("\n") ? "\n" : ""}${missing.map((k) => `${k}=${randomBytes(32).toString("hex")}\n`).join("")}`;
+		writeFileSync(file, text, { mode: 0o600 });
+		chmodSync(file, 0o600);
+	}
+	return Buffer.from(/^AJO_SECRET_KEY=([0-9a-f]{64})$/m.exec(text)?.[1] ?? "", "hex");
+}
+
+/** The container reports pseudonyms, so its log never holds a name. The host puts the names back for the caller. */
+function withNames(report: RoundReport, key: Buffer): RoundReport {
+	const names = new Map(loadStack().members.map((m) => [pseudonym(key, m.name) as string, m.name]));
+	const name = (id: string) => names.get(id) ?? id;
+	return { ...report, payee: name(report.payee), contributions: report.contributions.map((c) => ({ ...c, member: name(c.member) })) };
 }
 
 async function main(arg: string | undefined) {
 	const id = roundId(Number(arg));
 	const stateDir = process.env.AJO_STATE_DIR;
 	if (!stateDir) {
-		ensureKeys();
-		const r = spawnSync("docker", ["compose", "run", "--rm", "--no-deps", "-T", "app", "node", "src/run-round.ts", String(id)], { cwd: root, stdio: "inherit" });
-		return r.status ?? 1;
+		const key = ensureKeys();
+		const r = spawnSync("docker", ["compose", "run", "--rm", "--no-deps", "-T", "app", "node", "src/run-round.ts", String(id)], {
+			cwd: root,
+			encoding: "utf8",
+			stdio: ["ignore", "pipe", "inherit"],
+		});
+		const lines = (r.stdout ?? "").trim().split("\n");
+		if (r.status !== 0) {
+			process.stdout.write(r.stdout ?? "");
+			return r.status ?? 1;
+		}
+		console.log(lines.slice(0, -1).concat(JSON.stringify(withNames(JSON.parse(lines.at(-1) ?? ""), key))).join("\n"));
+		return 0;
 	}
 	console.log(JSON.stringify(await runRound(id, stateDir)));
 	return 0;
