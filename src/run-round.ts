@@ -29,13 +29,13 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const realSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const hashOf = (p: Preimage) => paymentHash(createHash("sha256").update(Buffer.from(p, "hex")).digest("hex"));
 
-/** Only the runner holds the preimage, so once it cancels an expired invoice no payment can land on it. */
-const CANCELLED = "Ajo cancelled the invoice when it expired, so this payment can no longer land, and any sats still on their way go back to this member's wallet.";
+/** Only the runner holds the preimage, so no payment lands on an invoice it has failed. The cancel that frees a late payment may only reach the hub on a rerun. */
+const CLOSED = "Ajo will not take a payment on this invoice now that it has expired, so any sats still on their way go back to this member's wallet.";
 const PLAIN: Record<FailReason, string> = {
 	QUOTA_EXCEEDED: "This payment is over the monthly spending cap on this member's wallet connection.",
 	INSUFFICIENT_BALANCE: "This member's wallet did not have enough sats for the payment.",
-	PAYMENT_FAILED: `The wallet reported a failed payment. ${CANCELLED}`,
-	TIMEOUT: `The wallet did not answer in time. ${CANCELLED}`,
+	PAYMENT_FAILED: `The wallet reported a failed payment. ${CLOSED}`,
+	TIMEOUT: `The wallet did not answer in time. ${CLOSED}`,
 };
 
 const STATE_KEYS = "keys.env";

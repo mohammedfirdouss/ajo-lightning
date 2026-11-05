@@ -377,13 +377,13 @@ test("lookups that fail at once stay at least 500 ms apart, and the runner's clo
 	]);
 });
 
-test("a payment whose wallet never answers ends failed at expiry and says its invoice was cancelled, and a refusal does not", async () => {
+test("a payment whose wallet never answers ends failed at expiry and says no payment can land now, and a refusal does not", async () => {
 	const ln = lightning();
 	const report = await ln.run(1, fakeStore(), { pay: (uri) => (uri === "pay:bola" ? { error: "TIMEOUT" } : { error: "QUOTA_EXCEEDED" }) });
 	const error = (who: string) => {
 		const c = report.contributions.find((x) => x.member === who);
 		return c?.state === "failed" ? (c.error ?? "") : "";
 	};
-	assert.match(error("bola"), /did not answer in time. Ajo cancelled the invoice when it expired, so this payment can no longer land/);
-	assert.doesNotMatch(error("chidi"), /cancelled/);
+	assert.match(error("bola"), /did not answer in time. Ajo will not take a payment on this invoice now that it has expired/);
+	assert.doesNotMatch(error("chidi"), /expired/);
 });
