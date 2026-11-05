@@ -14,7 +14,7 @@ docker compose up
 
 The first run builds the web image. Then it boots bitcoind, a Nostr relay, a router hub and five member Alby Hubs on regtest, and opens a channel from each member to the router. When the log shows `seed done`, open <http://127.0.0.1:8000> on the same machine.
 
-1. Start a circle. Choose a name, the sats each member pays, how often they pay, the reminder language and a passcode of at least 6 characters. Share the passcode only with the members.
+1. Start a circle. Choose a name, the sats each member pays, how often they pay, the reminder language and a passcode of at least 6 characters. Share the passcode only with the members. Each demo wallet can pay up to 1010 sat a month, so on this stack the form refuses more. To try a bigger amount, start over with `docker compose down -v`, then run `CONTRIBUTION=5000 docker compose up`.
 2. Join five members. Each member types the passcode and pastes a pay link and a receive link from their wallet. On this stack, a member can pick one of the five demo wallets instead.
 3. Open round 1 from the circle page. Round 1 pays the first member who joined. Type the passcode and press **Collect this round**. Each row turns green when that payment reaches the payee's wallet.
 4. Open **See the receipts**. Anyone can read the receipts without the passcode.

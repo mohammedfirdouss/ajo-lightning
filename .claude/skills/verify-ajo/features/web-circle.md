@@ -10,6 +10,7 @@ The circle page at `/` starts a circle with a name, a contribution in sats, a ca
 - The member list is the payout order. Round n pays member n.
 - Each limit shows in sats and in naira. Naira uses the fixed demo rate `AJO_NAIRA_PER_SAT` (default 1.5), and the page says it is not a live price.
 - The join button shows only until round 1 has started.
+- On the stack, the form says each demo wallet can pay up to the seeded pay budget a month, 1010 sat by default, and refuses a larger contribution with 422 and "Choose 1010 sat or less". It stores no circle, so the organiser can try again.
 
 ## How to get to it (user POV)
 

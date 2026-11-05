@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash, randomBytes } from "node:crypto";
 import { test } from "node:test";
-import { roundId } from "../../src/round/types.ts";
+import { roundId, sats } from "../../src/round/types.ts";
 import { fakeSource } from "../../src/web/fake.ts";
 import { limiter } from "../../src/web/passcode.ts";
 import { type AppOptions, createApp } from "../../src/web/server.ts";
@@ -140,7 +140,7 @@ test("a waiting payer's reminder comes from the reminder writer for their seat, 
 });
 
 test("the demo wallets join through the same checks as pasted links", async () => {
-	const demo = [{ pay: nwcLink(link()), receive: nwcLink(link()) }] as RoundSource["demo"];
+	const demo = { capSat: sats(1010), wallets: [{ pay: nwcLink(link()), receive: nwcLink(link()) }] } as RoundSource["demo"];
 	const joined: string[] = [];
 	const source = { ...fakeSource(), demo };
 	const app = await circleOfFive({
@@ -152,6 +152,17 @@ test("the demo wallets join through the same checks as pasted links", async () =
 	});
 	const res = await app.request("/join", form({ name: "Femi", passcode, use: "demo", demo: "1" }));
 	assert.equal(res.status, 303);
-	assert.equal(joined.at(-1), demo?.[0].pay);
+	assert.equal(joined.at(-1), demo?.wallets[0].pay);
 	assert.equal((await app.request("/join", form({ name: "Gbenga", passcode, use: "demo", demo: "9" }))).status, 422);
+});
+
+test("on the demo stack a circle cannot ask more than a demo wallet may pay", async () => {
+	const source: RoundSource = { ...fakeSource(), demo: { capSat: sats(1010), wallets: [] } };
+	const app = createApp(source, 1.5, { remind: () => "template" });
+	assert.match(await (await app.request("/")).text(), /demo wallets can each pay up to 1010 sat a month/);
+	const over = await app.request("/circle", form({ name: "Market ajo", contribution: "5000", cadence: "monthly", lang: "en", passcode }));
+	assert.equal(over.status, 422);
+	assert.match(await over.text(), /Choose 1010 sat or less/);
+	assert.equal(await source.circle(), undefined, "the refused circle is not stored, so the organiser can try again");
+	assert.equal((await app.request("/circle", form({ name: "Market ajo", contribution: "1010", cadence: "monthly", lang: "en", passcode }))).status, 303);
 });

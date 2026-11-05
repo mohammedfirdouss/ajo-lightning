@@ -88,7 +88,7 @@ export function createApp(source: RoundSource, nairaPerSat: number, { remind = r
 
 	app.get("/", async (c) => {
 		const circle = await source.circle();
-		if (!circle) return c.html(createPage());
+		if (!circle) return c.html(createPage({ capSat: source.demo?.capSat }));
 		return c.html(circlePage(circle, await rounds(circle.members.length), m));
 	});
 
@@ -99,12 +99,15 @@ export function createApp(source: RoundSource, nairaPerSat: number, { remind = r
 		const cadence = text(body.cadence);
 		const lang = text(body.lang);
 		const code = typeof body.passcode === "string" ? body.passcode : "";
+		const fail = (error: string) => c.html(createPage({ error, capSat: source.demo?.capSat }), 422);
 		if (!n || !Number.isSafeInteger(contribution) || contribution < 1 || contribution > 1_000_000 || (cadence !== "weekly" && cadence !== "monthly") || !LANGS.has(lang)) {
-			return c.html(createPage("Give the circle a name, a whole number of sats from 1 to 1,000,000, how often members pay, and a reminder language."), 422);
+			return fail("Give the circle a name, a whole number of sats from 1 to 1,000,000, how often members pay, and a reminder language.");
 		}
 		if (code.length < PASSCODE.min || code.length > PASSCODE.max) {
-			return c.html(createPage(`Choose a passcode of ${PASSCODE.min} to ${PASSCODE.max} characters.`), 422);
+			return fail(`Choose a passcode of ${PASSCODE.min} to ${PASSCODE.max} characters.`);
 		}
+		const cap = source.demo?.capSat;
+		if (cap !== undefined && contribution > cap) return fail(`On this demo stack each wallet can pay up to ${cap} sat a month. Choose ${cap} sat or less.`);
 		if (await source.circle()) return c.redirect("/", 303);
 		const start = new Date().toISOString().slice(0, 10);
 		await source.create({ name: n, contribution: sats(contribution), cadence, lang: lang as Circle["lang"], start, lock: await lock(code) });
@@ -113,7 +116,7 @@ export function createApp(source: RoundSource, nairaPerSat: number, { remind = r
 
 	app.get("/join", async (c) => {
 		const circle = await source.circle();
-		return circle ? c.html(joinPage(circle, m, { demo: source.demo?.length })) : c.redirect("/", 303);
+		return circle ? c.html(joinPage(circle, m, { demo: source.demo?.wallets.length })) : c.redirect("/", 303);
 	});
 
 	app.post("/join", async (c) => {
@@ -121,14 +124,14 @@ export function createApp(source: RoundSource, nairaPerSat: number, { remind = r
 		if (!circle) return c.redirect("/", 303);
 		const body = await c.req.parseBody();
 		const n = name(body.name);
-		const fail = (error: string, code: 403 | 422 | 429 = 422) => c.html(joinPage(circle, m, { error, name: text(body.name).slice(0, 40), demo: source.demo?.length }), code);
+		const fail = (error: string, code: 403 | 422 | 429 = 422) => c.html(joinPage(circle, m, { error, name: text(body.name).slice(0, 40), demo: source.demo?.wallets.length }), code);
 		if (!n) return fail("Type your name, up to 40 letters.");
 		const refused = await refuse(c, circle, body.passcode);
 		if (refused) return fail(refused.text, refused.status);
 		let links: Partial<Links> = { pay: nwcLink(text(body.pay)), receive: nwcLink(text(body.receive)) };
 		if (body.use === "demo") {
 			const seat = Number(text(body.demo));
-			links = source.demo?.[seat - 1] ?? {};
+			links = source.demo?.wallets[seat - 1] ?? {};
 			if (!links.pay) return fail("Pick one of the demo wallets.");
 		}
 		const { pay, receive } = links;
@@ -184,13 +187,15 @@ function sourceFromEnv(env: NodeJS.ProcessEnv): RoundSource {
 	const { secretKey, circleKey } = stateKeys(dir);
 	const relay = env.AJO_RELAY_URL ?? "ws://relay:8080";
 	const seeded = `${dir}/connections.json`;
-	const demo = existsSync(seeded)
-		? (JSON.parse(readFileSync(seeded, "utf8")) as { members: { pay: { uri: string }; receive: { uri: string } }[] }).members.flatMap((x) => {
-				const pay = nwcLink(x.pay.uri);
-				const receive = nwcLink(x.receive.uri);
-				return pay && receive ? [{ pay, receive }] : [];
-			})
-		: undefined;
+	const stack = existsSync(seeded) ? (JSON.parse(readFileSync(seeded, "utf8")) as { budgetSat: number; members: { pay: { uri: string }; receive: { uri: string } }[] }) : undefined;
+	const demo = stack && {
+		capSat: sats(stack.budgetSat),
+		wallets: stack.members.flatMap((x) => {
+			const pay = nwcLink(x.pay.uri);
+			const receive = nwcLink(x.receive.uri);
+			return pay && receive ? [{ pay, receive }] : [];
+		}),
+	};
 	return nwcSource({
 		store: openStore(`${dir}/ajo.db`, secretKey),
 		circleKey,

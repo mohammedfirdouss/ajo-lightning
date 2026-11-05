@@ -36,6 +36,8 @@ export type Circle = {
 export type NewCircle = Omit<Circle, "members" | "pubkey" | "relayUrl">;
 export type Links = { pay: NwcLink; receive: NwcLink };
 export type NewMember = Links & { name: string };
+/** The seeded regtest wallets, and the most each one may pay a month. */
+export type Demo = { wallets: readonly Links[]; capSat: Sats };
 export type Joined = { ok: true; member: Member } | { ok: false; reason: string };
 
 /** A round nobody has collected yet. Undefined when the circle has no round `n`. */
@@ -57,6 +59,6 @@ export interface RoundSource {
 	join(member: NewMember): Promise<Joined>;
 	round(n: RoundId): Promise<Round | undefined>;
 	collect(n: RoundId): Promise<RoundReport>;
-	/** The seeded regtest wallets, so a demo can join members without copying links. Absent outside the demo stack. */
-	demo?: readonly Links[];
+	/** Lets a demo join members without copying links. Absent outside the demo stack. */
+	demo?: Demo;
 }

@@ -4,7 +4,7 @@ import { type RunEnv, runRound } from "../run-round.ts";
 import { roundId, type Sats, sats } from "../round/types.ts";
 import type { Store } from "../store/sqlite.ts";
 import type { LinkInfo } from "../wallet/nwc.ts";
-import { type Circle, type Links, type Member, type NewCircle, type RoundSource, scheduled } from "./source.ts";
+import { type Circle, type Demo, type Member, type NewCircle, type RoundSource, scheduled } from "./source.ts";
 
 export type NwcSourceEnv = {
 	store: Store;
@@ -14,7 +14,7 @@ export type NwcSourceEnv = {
 	publish: (events: Event[]) => Promise<void>;
 	connect: RunEnv["connect"];
 	linkInfo: (uri: string) => Promise<LinkInfo>;
-	demo?: readonly Links[];
+	demo?: Demo;
 };
 
 const fix = (what: string) => `Make a new ${what} in your wallet and paste it again.`;
