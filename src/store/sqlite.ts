@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, createHmac, randomBytes } from "node:
 import { chmodSync, closeSync, openSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import type { Event } from "nostr-tools/pure";
-import { type MemberId, memberId, type PaymentHash, type Round, type RoundId } from "../round/types.ts";
+import { type MemberId, memberId, type PaymentHash, type Preimage, preimage, type Round, type RoundId } from "../round/types.ts";
 
 /** `capSat` is the spending cap the pay connection reported when the member joined. */
 export type MemberSecrets = { name: string; pay: string; receive: string; capSat?: number };
@@ -44,6 +44,7 @@ export function openStore(file: string, key: Buffer) {
 		CREATE TABLE IF NOT EXISTS invoices (payment_hash TEXT PRIMARY KEY, round INTEGER NOT NULL);
 		CREATE TABLE IF NOT EXISTS receipts (payment_hash TEXT PRIMARY KEY, event TEXT NOT NULL, published INTEGER NOT NULL DEFAULT 0);
 		CREATE TABLE IF NOT EXISTS circle (id INTEGER PRIMARY KEY CHECK (id = 1), sealed TEXT NOT NULL);
+		CREATE TABLE IF NOT EXISTS holds (round INTEGER NOT NULL, payer TEXT NOT NULL, sealed TEXT NOT NULL, settle_sent INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (round, payer));
 	`);
 	const tx = (fn: () => void) => {
 		db.exec("BEGIN IMMEDIATE");
@@ -90,6 +91,17 @@ export function openStore(file: string, key: Buffer) {
 				if (newInvoice) db.prepare("INSERT INTO invoices (payment_hash, round) VALUES (?, ?)").run(newInvoice, round.id);
 			});
 		},
+		/** The preimage behind a payer's hold invoice, made once and kept sealed, so a crash never loses it and a rerun never needs a new one. */
+		holdPreimage(round: RoundId, payer: MemberId): Preimage {
+			db.prepare("INSERT OR IGNORE INTO holds (round, payer, sealed) VALUES (?, ?, ?)").run(round, payer, seal(key, randomBytes(32).toString("hex")));
+			const row = db.prepare("SELECT sealed FROM holds WHERE round = ? AND payer = ?").get(round, payer) as { sealed: string };
+			return preimage(open(key, row.sealed));
+		},
+		/** Set before the preimage leaves the runner. From then on the payee may hold the sats, so the runner's clock can no longer fail the payment. */
+		markSettleSent(round: RoundId, payer: MemberId) {
+			db.prepare("UPDATE holds SET settle_sent = 1 WHERE round = ? AND payer = ?").run(round, payer);
+		},
+		settleSent: (round: RoundId, payer: MemberId) => db.prepare("SELECT 1 FROM holds WHERE round = ? AND payer = ? AND settle_sent = 1").get(round, payer) !== undefined,
 		hasReceipt: (hash: PaymentHash) => db.prepare("SELECT 1 FROM receipts WHERE payment_hash = ?").get(hash) !== undefined,
 		addReceipt(hash: PaymentHash, event: Event) {
 			db.prepare("INSERT INTO receipts (payment_hash, event) VALUES (?, ?)").run(hash, JSON.stringify(event));

@@ -21,6 +21,8 @@ const fix = (what: string) => `Make a new ${what} in your wallet and paste it ag
 
 export type LinkCheck = { ok: true; capSat: Sats } | { ok: false; reason: string };
 
+const HOLD = ["make_hold_invoice", "settle_hold_invoice", "cancel_hold_invoice", "lookup_invoice"];
+
 /** Judges a pair of links by what their wallets report, in words a member can act on. `undefined` means no answer. */
 export function checkLinks(pay: LinkInfo | undefined, receive: LinkInfo | undefined, contribution: Sats): LinkCheck {
 	const no = (reason: string): LinkCheck => ({ ok: false, reason });
@@ -28,7 +30,7 @@ export function checkLinks(pay: LinkInfo | undefined, receive: LinkInfo | undefi
 	if (!pay) return no("Ajo could not reach the wallet behind your pay link. Check that your wallet is online, then try again.");
 	if (!receive) return no("Ajo could not reach the wallet behind your receive link. Check that your wallet is online, then try again.");
 	if (receive.methods.includes("pay_invoice")) return no(`Your receive link can spend money, so Ajo will not keep it. ${fix("receive link that can only create invoices and look them up")}`);
-	if (!receive.methods.includes("make_invoice") || !receive.methods.includes("lookup_invoice")) return no(`Your receive link cannot create invoices and look them up. ${fix("receive link with those two permissions")}`);
+	if (!HOLD.every((m) => receive.methods.includes(m))) return no(`Your receive link cannot create, settle and cancel hold invoices. ${fix("receive link with permission to create invoices and look them up")}`);
 	if (pay.methods.includes("make_invoice")) return no(`Your pay link can also create invoices. ${fix("pay link that can only pay")}`);
 	if (!pay.methods.includes("pay_invoice")) return no(`Your pay link cannot pay. ${fix("pay link with permission to pay")}`);
 	const { budget } = pay;

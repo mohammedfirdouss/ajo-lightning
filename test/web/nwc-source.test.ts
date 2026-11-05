@@ -29,6 +29,13 @@ test("link checks refuse a receive link that can pay, a pay link that can invoic
 	assert.match(reason(PAY, undefined), /could not reach the wallet behind your receive link/);
 });
 
+test("link checks refuse a receive link without the hold invoice methods", () => {
+	for (const method of ["make_hold_invoice", "settle_hold_invoice", "cancel_hold_invoice", "lookup_invoice"]) {
+		const r = checkLinks(PAY, { methods: RECEIVE.methods.filter((m) => m !== method) }, sats(1000));
+		assert.match(r.ok ? "ok" : r.reason, /^Your receive link cannot create, settle and cancel hold invoices/, method);
+	}
+});
+
 test("link checks want a renewing pay limit with room for the contribution and its routing fee", () => {
 	const reason = (budget: LinkInfo["budget"], contribution = 1000) => {
 		const r = checkLinks({ ...PAY, budget }, RECEIVE, sats(contribution));
