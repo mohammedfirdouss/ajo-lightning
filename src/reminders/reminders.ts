@@ -3,7 +3,7 @@ import { LANGUAGES, type ReminderInput } from "./templates.ts";
 
 export type Reminder = { text: string; source: "ai" | "template" };
 
-export const MODEL = "claude-opus-5-5";
+export const MODEL = "claude-haiku-5-5";
 export const TIMEOUT_MS = 3500;
 
 export function promptFor({ lang, amount, due, member }: ReminderInput) {
@@ -22,13 +22,11 @@ export async function reminder(input: ReminderInput, client = defaultClient()): 
 	if (!client) return template;
 	const { seat, system, content } = promptFor(input);
 	try {
-		const response = await client.beta.messages.create(
+		const response = await client.messages.create(
 			{
 				model: MODEL,
 				max_tokens: 200,
 				output_config: { effort: "low" },
-				betas: ["server-side-fallback-2026-07-01"],
-				fallbacks: "default",
 				system,
 				messages: [{ role: "user", content }],
 			},

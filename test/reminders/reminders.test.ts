@@ -13,7 +13,7 @@ const reply = (text: string) =>
 			id: "msg_1",
 			type: "message",
 			role: "assistant",
-			model: "claude-opus-5-5",
+			model: "claude-haiku-5-5",
 			content: [{ type: "text", text }],
 			stop_reason: "end_turn",
 			usage: { input_tokens: 1, output_tokens: 1 },
@@ -54,7 +54,17 @@ test("the request body holds no member name or phone number, even when the calle
 	assert.ok(bodies[0].includes("French") && bodies[0].includes("4000 sats"));
 });
 
-test("a call that hangs falls back to the template in under 5 seconds", async () => {
+test("the request asks Haiku at low effort and sends no fallbacks, which Haiku does not accept", async () => {
+	const { client, bodies } = fakeClient(async () => reply("Member 3, pay 4000 sats by 2026-11-12."));
+	assert.equal((await reminder(input("en"), client)).source, "ai");
+	const body = JSON.parse(bodies[0]);
+	assert.equal(body.model, "claude-haiku-5-5");
+	assert.equal(body.max_tokens, 200);
+	assert.deepEqual(body.output_config, { effort: "low" });
+	assert.ok(!("fallbacks" in body), "no fallbacks on a Haiku request");
+});
+
+test("a call that hangs falls back to the template after the 3.5 second deadline", async () => {
 	const { client } = fakeClient(
 		(_body, signal) => new Promise((_, reject) => signal?.addEventListener("abort", () => reject(signal.reason))),
 	);
