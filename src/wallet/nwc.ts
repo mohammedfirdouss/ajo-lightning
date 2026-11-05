@@ -63,13 +63,10 @@ export function connect(uri: string) {
 				return { error: failReason(e) };
 			}
 		},
+		/** A lookup only reads, so any failure, including the SDK's plain relay errors, is no answer yet. */
 		async lookup(invoice: Invoice): Promise<LookupState | undefined> {
-			try {
-				return lookupState(await client.lookupInvoice({ payment_hash: invoice.paymentHash }), invoice, Date.now() / 1000);
-			} catch (e) {
-				if (e instanceof Nip47WalletError || e instanceof Nip47TimeoutError) return undefined;
-				throw e;
-			}
+			const tx = await client.lookupInvoice({ payment_hash: invoice.paymentHash }).catch(() => undefined);
+			return tx && lookupState(tx, invoice, Date.now() / 1000);
 		},
 		close: () => client.close(),
 	};
