@@ -3,14 +3,17 @@ import type { Round } from "../../round/types.ts";
 import { type Money, roundWord, status } from "../copy.ts";
 import type { Circle } from "../source.ts";
 import { beadRing } from "./beads.ts";
+import { passcodeToEnter } from "./circle.ts";
 import { type Html, layout } from "./layout.ts";
+
+export type RoundView = { error?: string };
 
 const action: Partial<Record<Round["phase"], string>> = {
 	scheduled: "Collect this round",
 	partial: "Try the unpaid members again",
 };
 
-export function roundPage(circle: Circle, round: Round, m: Money): Html {
+export function roundPage(circle: Circle, round: Round, m: Money, { error }: RoundView = {}): Html {
 	const names = new Map(circle.members.map((x) => [x.id, x.name]));
 	const rows = round.contributions.map((c) => ({ c, s: status(c) }));
 	const paid = rows.filter((r) => r.s.tone === "paid").length;
@@ -23,6 +26,7 @@ export function roundPage(circle: Circle, round: Round, m: Money): Html {
 		html`<p class="back"><a href="/">Back to ${circle.name}</a></p>
 <h1>Round ${round.id} pays ${names.get(round.payee)}</h1>
 <p class="mut">${round.contributions.length} members pay ${m.sat(round.contribution)} (${m.naira(round.contribution)}) each.</p>
+${error ? html`<p class="error" role="alert">${error}</p>` : ""}
 <div id="live" data-live="${live ? "1" : "0"}" aria-live="polite">
 <section class="prog">
 ${beadRing(
@@ -41,7 +45,7 @@ ${beadRing(
 		)}</ul>
 ${
 	label
-		? html`<form method="post" action="/round/${round.id}/collect" class="bar"><button>${label}</button></form>`
+		? html`<form method="post" action="/round/${round.id}/collect" class="stack">${passcodeToEnter}<div class="bar"><button>${label}</button></div></form>`
 		: live
 			? html`<div class="bar"><button disabled>Collecting…</button></div>`
 			: html`<p><a href="/receipts">See the receipts</a></p>`

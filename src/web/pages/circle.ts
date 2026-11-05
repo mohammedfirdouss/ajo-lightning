@@ -1,9 +1,17 @@
 import { html } from "hono/html";
 import type { Round } from "../../round/types.ts";
+import { LANGUAGES } from "../../reminders/templates.ts";
 import { type Money, roundWord } from "../copy.ts";
+import { PASSCODE } from "../passcode.ts";
 import type { Circle } from "../source.ts";
 import { beadRing } from "./beads.ts";
 import { type Html, layout } from "./layout.ts";
+
+const passcodeField = (hint: string, autocomplete: "new-password" | "current-password") =>
+	html`<label>Circle passcode <input type="password" name="passcode" required minlength="${PASSCODE.min}" maxlength="${PASSCODE.max}" autocomplete="${autocomplete}">
+<span class="hint">${hint}</span></label>`;
+
+export const passcodeToEnter = passcodeField("The passcode the circle's organiser shared with you.", "current-password");
 
 export const createPage = (error?: string) =>
 	layout(
@@ -18,6 +26,8 @@ ${error ? html`<p class="error" role="alert">${error}</p>` : ""}
 <label class="choice"><input type="radio" name="cadence" value="weekly"> Every week</label>
 <label class="choice"><input type="radio" name="cadence" value="monthly" checked> Every month</label>
 </fieldset>
+<label>Reminders in <select name="lang">${Object.entries(LANGUAGES).map(([code, l]) => html`<option value="${code}">${l.name}</option>`)}</select></label>
+${passcodeField(`At least ${PASSCODE.min} characters. Share it only with members. Joining and collecting need it.`, "new-password")}
 <button>Start the circle</button>
 </form>`,
 	);

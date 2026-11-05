@@ -1,5 +1,8 @@
 import type { RoundReport } from "../../scripts/e2e.ts";
+import type { Lang } from "../reminders/templates.ts";
+import { newRound } from "../round/round.ts";
 import type { MemberId, Round, RoundId, Sats } from "../round/types.ts";
+import type { Lock } from "./passcode.ts";
 
 declare const nwc: unique symbol;
 /** A `nostr+walletconnect://` link. It holds a spending secret, so no page, log or error ever shows it. */
@@ -15,18 +18,33 @@ export function nwcLink(s: string): NwcLink | undefined {
 export type Cadence = "weekly" | "monthly";
 /** `capSat` is what the member's pay connection lets the app spend each period, as their wallet reports it. */
 export type Member = { id: MemberId; name: string; capSat: Sats };
-/** `members` is the payout order. Round n pays `members[(n - 1) % members.length]`. */
+/**
+ * `members` is the payout order. Round n pays `members[(n - 1) % members.length]` and falls due `n - 1` periods
+ * after `start`, a YYYY-MM-DD date. `lang` is the language of the reminders.
+ */
 export type Circle = {
 	name: string;
 	contribution: Sats;
 	cadence: Cadence;
+	lang: Lang;
+	start: string;
+	lock: Lock;
 	members: readonly Member[];
 	pubkey: string;
 	relayUrl: string;
 };
-export type NewCircle = Pick<Circle, "name" | "contribution" | "cadence">;
-export type NewMember = { name: string; pay: NwcLink; receive: NwcLink };
+export type NewCircle = Omit<Circle, "members" | "pubkey" | "relayUrl">;
+export type Links = { pay: NwcLink; receive: NwcLink };
+export type NewMember = Links & { name: string };
 export type Joined = { ok: true; member: Member } | { ok: false; reason: string };
+
+/** A round nobody has collected yet. Undefined when the circle has no round `n`. */
+export function scheduled(circle: Circle, n: RoundId): Round | undefined {
+	const ms = circle.members;
+	if (ms.length < 2 || n > ms.length) return undefined;
+	const payee = ms[(n - 1) % ms.length].id;
+	return newRound({ id: n, payee, payers: ms.map((x) => x.id).filter((x) => x !== payee), contribution: circle.contribution });
+}
 
 /**
  * What the pages need from the round runner. `round(n)` reads the stored state, so a page can poll it while
@@ -39,4 +57,6 @@ export interface RoundSource {
 	join(member: NewMember): Promise<Joined>;
 	round(n: RoundId): Promise<Round | undefined>;
 	collect(n: RoundId): Promise<RoundReport>;
+	/** The seeded regtest wallets, so a demo can join members without copying links. Absent outside the demo stack. */
+	demo?: readonly Links[];
 }

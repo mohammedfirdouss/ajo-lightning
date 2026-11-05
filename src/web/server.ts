@@ -1,17 +1,25 @@
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
-import { Hono } from "hono";
+import { getConnInfo } from "@hono/node-server/conninfo";
+import { type Context, Hono } from "hono";
 import { secureHeaders } from "hono/secure-headers";
 import type { RoundReport } from "../../scripts/e2e.ts";
+import { publish } from "../receipts/nostr.ts";
+import { stateKeys } from "../run-round.ts";
 import { roundId, sats } from "../round/types.ts";
+import { openStore } from "../store/sqlite.ts";
+import { connect, linkInfo } from "../wallet/nwc.ts";
 import { money } from "./copy.ts";
 import { fakeSource } from "./fake.ts";
+import { nwcSource } from "./nwc-source.ts";
 import { circlePage, createPage } from "./pages/circle.ts";
 import { joinPage } from "./pages/join.ts";
 import { receiptsPage } from "./pages/receipts.ts";
 import { inlineHashes } from "./pages/layout.ts";
 import { roundPage } from "./pages/round.ts";
-import { nwcLink, type RoundSource } from "./source.ts";
+import { limiter, lock, opens, PASSCODE } from "./passcode.ts";
+import { type Circle, type Links, nwcLink, type RoundSource } from "./source.ts";
 
 const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 const name = (v: unknown) => {
@@ -19,10 +27,36 @@ const name = (v: unknown) => {
 	return s.length >= 1 && s.length <= 40 ? s : undefined;
 };
 
-export function createApp(source: RoundSource, nairaPerSat: number) {
+const LANGS = new Set(["en", "pcm", "yo", "fr", "wo"]);
+
+export type AppOptions = { wrong?: ReturnType<typeof limiter> };
+
+export function createApp(source: RoundSource, nairaPerSat: number, { wrong = limiter() }: AppOptions = {}) {
 	const m = money(nairaPerSat);
 	const collecting = new Map<number, Promise<RoundReport>>();
 	const app = new Hono();
+
+	const addr = (c: Context) => {
+		try {
+			return getConnInfo(c).remote.address ?? "unknown";
+		} catch {
+			return "unknown";
+		}
+	};
+	/** Undefined when the passcode opens the circle, otherwise the words to show. */
+	const refuse = async (c: Context, circle: Circle, code: unknown) => {
+		const wait = wrong.wait(addr(c));
+		if (wait > 0) {
+			const mins = Math.ceil(wait / 60_000);
+			return { status: 429 as const, text: `Too many wrong passcodes. Try again in ${mins} minute${mins === 1 ? "" : "s"}.` };
+		}
+		if (typeof code === "string" && code.length <= PASSCODE.max && (await opens(circle.lock, code))) {
+			wrong.clear(addr(c));
+			return undefined;
+		}
+		wrong.fail(addr(c));
+		return { status: 403 as const, text: "That passcode is not this circle's. Ask the organiser for it." };
+	};
 
 	app.use(
 		secureHeaders({
@@ -50,17 +84,23 @@ export function createApp(source: RoundSource, nairaPerSat: number) {
 		const n = name(body.name);
 		const contribution = Number(text(body.contribution));
 		const cadence = text(body.cadence);
-		if (!n || !Number.isSafeInteger(contribution) || contribution < 1 || contribution > 1_000_000 || (cadence !== "weekly" && cadence !== "monthly")) {
-			return c.html(createPage("Give the circle a name, a whole number of sats from 1 to 1,000,000, and how often members pay."), 422);
+		const lang = text(body.lang);
+		const code = typeof body.passcode === "string" ? body.passcode : "";
+		if (!n || !Number.isSafeInteger(contribution) || contribution < 1 || contribution > 1_000_000 || (cadence !== "weekly" && cadence !== "monthly") || !LANGS.has(lang)) {
+			return c.html(createPage("Give the circle a name, a whole number of sats from 1 to 1,000,000, how often members pay, and a reminder language."), 422);
+		}
+		if (code.length < PASSCODE.min || code.length > PASSCODE.max) {
+			return c.html(createPage(`Choose a passcode of ${PASSCODE.min} to ${PASSCODE.max} characters.`), 422);
 		}
 		if (await source.circle()) return c.redirect("/", 303);
-		await source.create({ name: n, contribution: sats(contribution), cadence });
+		const start = new Date().toISOString().slice(0, 10);
+		await source.create({ name: n, contribution: sats(contribution), cadence, lang: lang as Circle["lang"], start, lock: await lock(code) });
 		return c.redirect("/", 303);
 	});
 
 	app.get("/join", async (c) => {
 		const circle = await source.circle();
-		return circle ? c.html(joinPage(circle, m)) : c.redirect("/", 303);
+		return circle ? c.html(joinPage(circle, m, { demo: source.demo?.length })) : c.redirect("/", 303);
 	});
 
 	app.post("/join", async (c) => {
@@ -68,10 +108,17 @@ export function createApp(source: RoundSource, nairaPerSat: number) {
 		if (!circle) return c.redirect("/", 303);
 		const body = await c.req.parseBody();
 		const n = name(body.name);
-		const pay = nwcLink(text(body.pay));
-		const receive = nwcLink(text(body.receive));
-		const fail = (msg: string) => c.html(joinPage(circle, m, msg, text(body.name).slice(0, 40)), 422);
+		const fail = (error: string, code: 403 | 422 | 429 = 422) => c.html(joinPage(circle, m, { error, name: text(body.name).slice(0, 40), demo: source.demo?.length }), code);
 		if (!n) return fail("Type your name, up to 40 letters.");
+		const refused = await refuse(c, circle, body.passcode);
+		if (refused) return fail(refused.text, refused.status);
+		let links: Partial<Links> = { pay: nwcLink(text(body.pay)), receive: nwcLink(text(body.receive)) };
+		if (body.use === "demo") {
+			const seat = Number(text(body.demo));
+			links = source.demo?.[seat - 1] ?? {};
+			if (!links.pay) return fail("Pick one of the demo wallets.");
+		}
+		const { pay, receive } = links;
 		if (!pay || !receive) return fail("Each link must be a whole nostr+walletconnect:// link from your wallet. Paste both again.");
 		if (pay === receive) return fail("The pay link and the receive link must be different links.");
 		const joined = await source.join({ name: n, pay, receive });
@@ -94,6 +141,8 @@ export function createApp(source: RoundSource, nairaPerSat: number) {
 	app.post("/round/:n/collect", async (c) => {
 		const found = await roundParam(c.req.param("n"));
 		if (!found) return c.notFound();
+		const refused = await refuse(c, found.circle, (await c.req.parseBody()).passcode);
+		if (refused) return c.html(roundPage(found.circle, found.round, m, { error: refused.text }), refused.status);
 		const n = found.round.id;
 		if (!collecting.has(n) && found.round.phase !== "complete") {
 			const run = source.collect(n).finally(() => collecting.delete(n));
@@ -113,11 +162,31 @@ export function createApp(source: RoundSource, nairaPerSat: number) {
 }
 
 function sourceFromEnv(env: NodeJS.ProcessEnv): RoundSource {
-	if (env.AJO_SOURCE !== "fake") {
-		throw new Error("no round runner is wired in yet. Set AJO_SOURCE=fake to run the pages on in-memory wallets.");
+	if (env.AJO_SOURCE === "fake") {
+		const spentSat = Object.fromEntries((env.AJO_FAKE_SPENT ?? "").split(",").filter(Boolean).map((kv) => kv.split(":")).map(([k, v]) => [k, Number(v)]));
+		return fakeSource({ stepMs: Number(env.AJO_FAKE_STEP_MS ?? 400), spentSat });
 	}
-	const spentSat = Object.fromEntries((env.AJO_FAKE_SPENT ?? "").split(",").filter(Boolean).map((kv) => kv.split(":")).map(([k, v]) => [k, Number(v)]));
-	return fakeSource({ stepMs: Number(env.AJO_FAKE_STEP_MS ?? 400), spentSat });
+	const dir = env.AJO_STATE_DIR;
+	if (!dir) throw new Error("set AJO_STATE_DIR to the stack's state directory, or run docker compose up, which serves the pages on the regtest stack. AJO_SOURCE=fake runs them on in-memory wallets.");
+	const { secretKey, circleKey } = stateKeys(dir);
+	const relay = env.AJO_RELAY_URL ?? "ws://relay:8080";
+	const seeded = `${dir}/connections.json`;
+	const demo = existsSync(seeded)
+		? (JSON.parse(readFileSync(seeded, "utf8")) as { members: { pay: { uri: string }; receive: { uri: string } }[] }).members.flatMap((x) => {
+				const pay = nwcLink(x.pay.uri);
+				const receive = nwcLink(x.receive.uri);
+				return pay && receive ? [{ pay, receive }] : [];
+			})
+		: undefined;
+	return nwcSource({
+		store: openStore(`${dir}/ajo.db`, secretKey),
+		circleKey,
+		relayUrl: env.AJO_PUBLIC_RELAY_URL ?? relay,
+		publish: (events) => publish(relay, events),
+		connect,
+		linkInfo,
+		demo,
+	});
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
