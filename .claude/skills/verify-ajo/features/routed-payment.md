@@ -4,30 +4,28 @@ A member pays another member over two hops, member to router to member, through 
 
 ## Sub-features
 
-- `route-round` has members 2 to 5 each pay member1 one contribution.
-- `route-budget` refuses a payment over the pay budget with `QUOTA_EXCEEDED`.
+- `route-pay` has one member pay member1 one contribution.
+- `route-budget` refuses a second payment over the pay budget with `QUOTA_EXCEEDED`.
 - `route-scope` refuses a payment from a receive connection with `RESTRICTED`.
 
 ## How to get to it (user POV)
 
-- Today only the spike's flow script pays over NWC. The round runner and the web UI come in later PRs.
+- Run `./scripts/route`. The round runner and the web UI come in later PRs.
 
 ## Driving it with scripts and the hub API
 
 Preconditions:
 
 - A fresh stack from `./scripts/up`, so no member has spent its monthly budget yet.
-- `$RUN/connections.json` exists, per the skill's Drive section.
 
-- **Get the flow script.** Run `git show 2efe05b:spike/flow.mjs > "$RUN/flow.mjs" && printf '{"type":"module"}' > "$RUN/package.json" && npm i --prefix "$RUN" --silent @getalby/sdk@9.0.0`. If your relay is not on 7100, run `sed -i.bak "s#ws://127.0.0.1:7100#ws://127.0.0.1:$RELAY_PORT#" "$RUN/flow.mjs"`.
-- **Run it.** Define `route() { (cd "$RUN" && node flow.mjs) > "$RUN/flow.log" 2>&1; local rc=$?; grep -E 'delta|rejected:|->' "$RUN/flow.log"; return $rc; }`, then run `cap route route`. Four `member<n> -> member1` lines show `payee state=settled`, and the transcript ends with `exit=0`.
-- **Balances.** The same file shows `member1 delta= 4000`, `delta= -1001` for members 2 to 5, `router delta= 4`, and `balance deltas: ALL OK`. These come from hub `/api/channels`.
-- **Budget refusal.** The file holds `rejected: Nip47WalletError code=QUOTA_EXCEEDED`.
-- **Scope refusal.** The file holds `rejected: Nip47WalletError code=RESTRICTED`.
+- **Run it.** Run `cap route ./scripts/route`. It reads `connections.json` from the state volume, mints an invoice on member1's receive connection, and pays it from member2's pay connection. Every line starts with `ok`, and the transcript ends with `exit=0`.
+- **Balances.** Three lines give each hub's absolute balance before and after, read from `/api/channels` with the read-only tokens. With the default 1000 sat contribution, the deltas are `-1001 sat` for member2, `1000 sat` for member1, and `1 sat` for the router.
+- **Budget refusal.** The line `member2 pays member1 again in the same month` ends with `refused QUOTA_EXCEEDED`.
+- **Scope refusal.** The line `member1's receive connection tries to pay` ends with `refused RESTRICTED`.
+- **Another payer.** Run `./scripts/route member3` to pay from member3 instead. Any member other than member1 works once a month.
 
 ## Gotchas
 
-- Commit 2efe05b lives on the local `spike/node-per-member` branch and is not on GitHub. Run from a worktree of the local repo, not a fresh clone.
-- The flow script prints full tables, so the `grep` above keeps secrets and noise out of the evidence. Do not tee its raw output.
-- Budgets renew monthly. A second run on the same stack refuses every payer. Run `docker compose down -v && ./scripts/up` first.
-- Use `ws://127.0.0.1`, not `ws://localhost`, for the relay on macOS.
+- Budgets renew monthly. A second run with the same payer fails its first line with `refused QUOTA_EXCEEDED`, and its balance lines with a delta of 0. Pick another payer or run `docker compose down -v && ./scripts/up`.
+- The script prints no URI, secret, or token, so its raw output is safe evidence.
+- The script talks to the relay at `ws://127.0.0.1:$RELAY_PORT`. Use `127.0.0.1`, not `localhost`, on macOS.

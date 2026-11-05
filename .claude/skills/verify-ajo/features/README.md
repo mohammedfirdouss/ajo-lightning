@@ -5,7 +5,7 @@ This directory is the maintained source for proving what the stack does for a us
 ## Baseline preconditions
 
 - Docker is running, and the run's `COMPOSE_PROJECT_NAME`, `HUB_PORT_PREFIX`, `RELAY_PORT`, `RUN`, and `EVIDENCE` are set.
-- Node 22.18 or newer is on `PATH`, and `npm ci` has run in the repo.
+- Node 22.18 or newer is on `PATH`, and `npm ci` has run in the repo. Without `node_modules`, `scripts/e2e` and `scripts/route` say to run `npm ci`.
 - `./scripts/doctor` exits 0, unless the recipe is the boot itself.
 - Never drive a Compose project that this run did not start.
 
@@ -13,7 +13,7 @@ This directory is the maintained source for proving what the stack does for a us
 
 - Run every command from the repo root. Wrap each proof step in `cap <slug>`.
 - Read balances from hub `/api/channels` and receipts from the relay. A runner's own report is a claim, not proof.
-- Keep `connections.json` in `$RUN`. It holds NWC secrets and hub tokens.
+- Keep `connections.json` in `$RUN`. It holds NWC secrets and read-only hub tokens.
 
 ## Proof and skip reporting
 
@@ -29,5 +29,5 @@ Each feature file has an H1, one paragraph on the user-visible behavior, and fou
 
 - [Boot the stack](./boot.md) covers a cold boot, a bare `docker compose up`, `MEMBERS`, and the doctor.
 - [Restart warm](./warm-restart.md) covers `docker compose restart` and how fast channels and payments come back.
-- [Route a payment](./routed-payment.md) covers a two-hop payment, the pay budget refusal, and the receive-only refusal.
+- [Route a payment](./routed-payment.md) covers `scripts/route`: a two-hop payment, the pay budget refusal, and the receive-only refusal.
 - [Run the e2e checks](./e2e.md) covers `scripts/e2e` and its self-test.
