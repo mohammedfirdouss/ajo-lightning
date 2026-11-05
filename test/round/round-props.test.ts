@@ -51,7 +51,7 @@ test(`the five model rules and NoPayWhileUnresolved hold and every round ends, o
 
 const hashOf = (preimage: string) => createHash("sha256").update(Buffer.from(preimage, "hex")).digest("hex");
 
-test(`random events in any order never pay without proof, reuse a hash, or reopen a settled contribution, over ${RUNS} runs`, () => {
+test(`random events in any order never pay without proof, reuse a hash, reopen a paid contribution, or rerun on a new invoice, over ${RUNS} runs`, () => {
 	const payers = ["member2", "member3"].map(memberId);
 	const reasons: FailReason[] = ["QUOTA_EXCEEDED", "INSUFFICIENT_BALANCE", "PAYMENT_FAILED", "TIMEOUT"];
 	const pool = Array.from({ length: 6 }, (_, k) => invoiceFor(`h${k}`));
@@ -82,7 +82,13 @@ test(`random events in any order never pay without proof, reuse a hash, or reope
 			round = r.round;
 			const after = round.contributions.find((c) => c.payer === payer);
 			if (before && before.state !== "pending") assert.deepEqual(after && "invoice" in after && after.invoice, before.invoice, why);
-			if (before?.state === "paid" || before?.state === "failed") assert.deepEqual(after, before, why);
+			const rerun = r.ok && event.type === "rerun";
+			if (before?.state === "paid" || (before?.state === "failed" && !rerun)) assert.deepEqual(after, before, why);
+			if (before?.state === "failed" && rerun) {
+				const { invoice, tries, reason } = before;
+				const lookup = { state: "invoiced", payer, invoice, step: "lookup", tries, lastErr: reason };
+				assert.deepEqual(after, lookup, `a rerun looks up the stored invoice, ${why}`);
+			}
 			if (after?.state === "paid" && before?.state !== "paid") {
 				seen.add(event.type);
 				const proved =

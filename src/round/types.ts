@@ -56,7 +56,7 @@ export type Invoiced = {
 /** A wallet can claim success, so a payment counts only with a preimage that hashes to the invoice, or the payee's word. */
 export type Proof = { by: "preimage"; preimage: Preimage } | { by: "payeeLookup" };
 export type Paid = { state: "paid"; payer: MemberId; invoice: Invoice; proof: Proof };
-export type Failed = { state: "failed"; payer: MemberId; invoice: Invoice; reason: FailReason };
+export type Failed = { state: "failed"; payer: MemberId; invoice: Invoice; tries: number; reason: FailReason };
 export type Contribution = Pending | Invoiced | Paid | Failed;
 
 type Common = { id: RoundId; payee: MemberId; contribution: Sats; maxTries: number; reruns: number };

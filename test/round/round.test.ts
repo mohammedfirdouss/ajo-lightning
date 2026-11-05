@@ -101,7 +101,7 @@ test("RecordMatchesWalletAtEnd: the round stays collecting while a pay call is o
 	w.LookupInvoice(m3);
 	assert.equal(w.EndRound().ok, true);
 	assert.equal(w.round.phase, "partial");
-	assert.deepEqual(w.contribution(m3), { state: "failed", payer: m3, invoice: open.invoice, reason: "QUOTA_EXCEEDED" });
+	assert.deepEqual(w.contribution(m3), { state: "failed", payer: m3, invoice: open.invoice, tries: 1, reason: "QUOTA_EXCEEDED" });
 	assert.equal(w.contribution(m2).state, "paid");
 	assert.deepEqual(w.brokenRules(), []);
 });
@@ -135,7 +135,7 @@ test("NoPayerChargedTwice: an open invoice past the try limit is only looked up,
 	assert.equal(w.round.phase, "partial");
 });
 
-test("NoPayerChargedTwice: running a partial round again asks no wallet to pay", () => {
+test("NoPayerChargedTwice: running a partial round again looks up the expired invoice and asks no wallet to pay", () => {
 	const w = new World();
 	w.Start();
 	w.MakeInvoice(m2);
@@ -147,12 +147,39 @@ test("NoPayerChargedTwice: running a partial round again asks no wallet to pay",
 	w.PaymentArrives(m2);
 	w.RecordReply(m2);
 	lookupAndClose(w);
-	assert.deepEqual(w.contribution(m2), { state: "failed", payer: m2, invoice: c.invoice, reason: "TIMEOUT" });
+	const failed = { state: "failed", payer: m2, invoice: c.invoice, tries: 1, reason: "TIMEOUT" };
+	assert.deepEqual(w.contribution(m2), failed);
 	w.RoundRunsAgain();
-	assert.deepEqual(commandTypes(w), ["close"]);
+	assert.deepEqual(next(w.round), [{ type: "lookup", payer: m2, invoice: c.invoice }]);
+	lookupAndClose(w);
+	assert.equal(w.round.phase, "partial");
+	assert.deepEqual(w.contribution(m2), failed);
+	assert.equal(w.charged.get(m2) ?? 0, 0);
+	assert.equal(w.invoices.size, 1);
+});
+
+test("NoPayerChargedTwice: a rerun after the payee wrongly reports a paid invoice expired looks it up again and never mints", () => {
+	const w = new World(["member2"], 1);
+	w.Start();
+	w.MakeInvoice(m2);
+	const c = w.contribution(m2);
+	assert.equal(c.state, "invoiced");
+	w.SendPay(m2);
+	w.WalletSends(m2);
+	w.ReplyTimesOut(m2);
+	w.LatePaymentArrives();
+	w.RecordReply(m2);
+	assert.equal(w.charged.get(m2), 1000);
+	assert.equal(w.feed({ type: "lookupReplied", payer: m2, invoice: "expired" }).ok, true);
 	assert.equal(w.EndRound().ok, true);
 	assert.equal(w.round.phase, "partial");
-	assert.equal(w.charged.get(m2) ?? 0, 0);
+	w.RoundRunsAgain();
+	assert.deepEqual(next(w.round), [{ type: "lookup", payer: m2, invoice: c.invoice }], "the rerun offers no makeInvoice");
+	w.LookupInvoice(m2);
+	assert.equal(w.EndRound().ok, true);
+	assert.equal(w.round.phase, "complete");
+	assert.equal(w.charged.get(m2), 1000);
+	assert.equal(w.invoices.size, 1);
 });
 
 test("CompleteMeansEveryonePaid: a pay reply without a preimage that hashes to the invoice is not proof", () => {

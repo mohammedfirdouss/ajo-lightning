@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { apply, newRound, next } from "../../src/round/round.ts";
 import {
@@ -193,8 +194,15 @@ export class World {
 		this.must({ type: "restarted" });
 	}
 
+	/** As in the model, every unpaid payer goes back to a lookup of its stored invoice, and nobody gets a new one. */
 	RoundRunsAgain() {
+		const unpaid = this.round.contributions.filter((c) => c.state !== "paid");
 		this.must({ type: "rerun" });
+		for (const c of unpaid) {
+			const asked = next(this.round).filter((cmd) => "payer" in cmd && cmd.payer === c.payer);
+			const stored = "invoice" in c ? c.invoice : undefined;
+			assert.deepEqual(asked, [{ type: "lookup", payer: c.payer, invoice: stored }], `the rerun must look up ${c.payer}'s stored invoice`);
+		}
 	}
 
 	EndRound() {

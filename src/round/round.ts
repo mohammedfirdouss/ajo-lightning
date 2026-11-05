@@ -38,7 +38,7 @@ function step(c: Contribution, event: Extract<RoundEvent, { payer: MemberId }>, 
 		case "lookupReplied":
 			if (c.state !== "invoiced" || (c.step !== "lookup" && c.step !== "lookupAtExpiry")) return `${c.payer} has no lookup to record`;
 			if (event.invoice === "settled") return { state: "paid", payer: c.payer, invoice: c.invoice, proof: { by: "payeeLookup" } };
-			if (event.invoice === "expired") return { state: "failed", payer: c.payer, invoice: c.invoice, reason: c.lastErr ?? "TIMEOUT" };
+			if (event.invoice === "expired") return { state: "failed", payer: c.payer, invoice: c.invoice, tries: c.tries, reason: c.lastErr ?? "TIMEOUT" };
 			return { ...c, step: c.tries < round.maxTries ? "pay" : "lookupAtExpiry" };
 	}
 }
@@ -58,9 +58,15 @@ export function apply(round: Round, event: RoundEvent): Applied {
 			const contributions = round.contributions.map((c) => (c.state === "invoiced" ? { ...c, step: "lookup" as const } : c));
 			return { ok: true, round: { ...round, contributions } };
 		}
-		case "rerun":
+		case "rerun": {
 			if (round.phase !== "partial") return reject(`only a partial round runs again, round ${round.id} is ${round.phase}`);
-			return { ok: true, round: { ...round, phase: "collecting", reruns: round.reruns + 1 } };
+			// The payee's "expired" can be wrong, so a fresh invoice could charge the payer twice. Look up the stored one instead.
+			const contributions = round.contributions.map((c): Contribution => {
+				if (c.state !== "failed") return c;
+				return { state: "invoiced", payer: c.payer, invoice: c.invoice, step: "lookup", tries: c.tries, lastErr: c.reason };
+			});
+			return { ok: true, round: { ...round, phase: "collecting", reruns: round.reruns + 1, contributions } };
+		}
 		case "close": {
 			if (round.phase !== "collecting") return reject(`round ${round.id} is ${round.phase}, not collecting`);
 			const open = round.contributions.find((c) => !settled(c));
