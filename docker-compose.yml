@@ -83,6 +83,20 @@ services:
     tmpfs: [/tmp]
     volumes: [state:/state, ./seed:/seed:ro]
 
+  # Runs `node src/run-round.ts <round>` on the compose network. The host command of the same name runs it here.
+  app:
+    image: node:24.11.1-alpine
+    profiles: [app]
+    depends_on: [relay]
+    working_dir: /app
+    command: ["node", "src/run-round.ts", "${ROUND:-1}"]
+    environment:
+      AJO_STATE_DIR: /state
+      AJO_RELAY_URL: ws://relay:8080
+      AJO_SECRET_KEY: ${AJO_SECRET_KEY:-}
+      AJO_CIRCLE_KEY: ${AJO_CIRCLE_KEY:-}
+    volumes: [.:/app:ro, state:/state]
+
 volumes:
   bitcoind:
   relay:

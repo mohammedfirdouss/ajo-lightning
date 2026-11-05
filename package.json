@@ -18,6 +18,7 @@
 	},
 	"dependencies": {
 		"@anthropic-ai/sdk": "1.1.0",
+		"@getalby/sdk": "9.0.0",
 		"@hono/node-server": "2.1.4",
 		"hono": "4.13.13",
 		"nostr-tools": "2.25.5"
