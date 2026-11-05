@@ -42,11 +42,11 @@ This program runs in Claude Code, not Cursor. Live lanes run on this machine aga
   - [ ] PR5 after PR4.
   - [ ] PR6 after PR5. Its owner may start drafting docs once PR3 is code-ready, in its own worktree.
 - [ ] Hold the file boundaries.
-  - [ ] PR1 touches only `docker-compose.yml`, `seed/**`, `scripts/**` including `scripts/check-plan.mjs`, `.claude/skills/verify-ajo/**`, `package.json`, and `docs/plan.md`.
+  - [ ] PR1 touches only `docker-compose.yml`, `seed/**`, `scripts/**` including `scripts/check-plan.mjs`, `.claude/skills/verify-ajo/**`, `package.json`, `package-lock.json`, `tsconfig.json`, `.gitignore`, and `docs/plan.md`.
   - [ ] PR2 touches only `src/round/**` and `test/round/**`.
-  - [ ] PR3 touches only `src/wallet/**`, `src/receipts/**`, `src/store/**`, `src/run-round.ts`, and `test/adapters/**`.
-  - [ ] PR4 touches only `src/web/**`, `public/**`, and `.claude/skills/verify-ajo/features/**`.
-  - [ ] PR5 touches only `src/reminders/**` and `test/reminders/**`.
+  - [ ] PR3 touches only `src/wallet/**`, `src/receipts/**`, `src/store/**`, `src/run-round.ts`, `test/adapters/**`, the new `app` service in `docker-compose.yml`, and its dependencies in `package.json` and `package-lock.json`.
+  - [ ] PR4 touches only `src/web/**`, `public/**`, `.claude/skills/verify-ajo/features/**`, the `app` service ports in `docker-compose.yml`, and its dependencies in `package.json` and `package-lock.json`.
+  - [ ] PR5 touches only `src/reminders/**`, `test/reminders/**`, and its dependencies in `package.json` and `package-lock.json`.
   - [ ] PR6 touches only `README.md`, `docs/**`, and `model/**`.
 - [ ] Hold the review gate. PR4 and PR5 change an interaction. They wait for the operator's review in chat with screenshots and a video before merge.
 
@@ -193,6 +193,7 @@ Each live lane runs on this machine at the PR head, in its own git worktree and 
 - [ ] Persist the invoice for each round and payer before the first `pay_invoice`. On start, call `lookup_invoice` for every open contribution.
 - [ ] Publish one signed receipt event per paid contribution, carrying round, pseudonymous payer id, amount, and payment hash. No names, phone numbers, or NWC secrets.
 - [ ] Keep NWC secrets in the database encrypted with a key from `.env`, and never log them.
+- [ ] Match the runner contract PR1 fixed in `scripts/e2e.ts`. `node src/run-round.ts <round>` exits 0 when the round ran, its last stdout line is the `RoundReport` JSON, and each receipt is a Nostr event tagged `t` `ajo-receipt` carrying the payment hash.
 
 **You see.**
 
