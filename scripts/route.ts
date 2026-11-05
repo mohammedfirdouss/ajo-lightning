@@ -97,7 +97,7 @@ async function main() {
 		),
 	);
 	const again = await pay(payer.pay.uri, payee);
-	report(again.code === "QUOTA_EXCEEDED", `${payer.name} pays ${payee.name} again in the same month: ${again.text}`);
+	report(again.code === "QUOTA_EXCEEDED", `${payer.name} pays ${payee.name} again in the same week: ${again.text}`);
 	const scoped = await pay(payee.receive.uri, payer);
 	report(scoped.code === "RESTRICTED", `${payee.name}'s receive connection tries to pay: ${scoped.text}`);
 	relay.close();

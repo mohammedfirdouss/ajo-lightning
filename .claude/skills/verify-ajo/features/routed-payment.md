@@ -1,6 +1,6 @@
 # Route a payment
 
-A member pays another member over two hops, member to router to member, through NWC. The pay connection refuses a second contribution in the same month, and the receive connection refuses to pay at all.
+A member pays another member over two hops, member to router to member, through NWC. The pay connection refuses a second contribution in the same week, and the receive connection refuses to pay at all.
 
 ## Sub-features
 
@@ -20,7 +20,7 @@ Preconditions:
 
 - **Run it.** Run `cap route ./scripts/route`. It reads `connections.json` from the state volume, mints an invoice on member1's receive connection, and pays it from member2's pay connection. Every line starts with `ok`, and the transcript ends with `exit=0`.
 - **Balances.** Three lines give each hub's absolute balance before and after, read from `/api/channels` with the read-only tokens. With the default 1000 sat contribution, the deltas are `-1001 sat` for member2, `1000 sat` for member1, and `1 sat` for the router.
-- **Budget refusal.** The line `member2 pays member1 again in the same month` ends with `refused QUOTA_EXCEEDED`.
+- **Budget refusal.** The line `member2 pays member1 again in the same week` ends with `refused QUOTA_EXCEEDED`.
 - **Scope refusal.** The line `member1's receive connection tries to pay` ends with `refused RESTRICTED`.
 - **Another payer.** Run `./scripts/route member3` to pay from member3 instead. Any member other than member1 works once a week.
 
