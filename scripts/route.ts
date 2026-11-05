@@ -1,4 +1,3 @@
-import { fileURLToPath } from "node:url";
 import { nip47 } from "nostr-tools";
 import { decrypt, encrypt, getConversationKey } from "nostr-tools/nip44";
 import { finalizeEvent } from "nostr-tools/pure";
@@ -11,12 +10,7 @@ type NwcReply = {
 	result?: { invoice?: string; payment_hash?: string };
 };
 
-export async function nwc(
-	relay: Relay,
-	uri: string,
-	method: string,
-	params: object,
-): Promise<NwcReply> {
+async function nwc(relay: Relay, uri: string, method: string, params: object): Promise<NwcReply> {
 	const wallet = nip47.parseConnectionString(uri);
 	const sk = hexToBytes(wallet.secret);
 	const key = getConversationKey(sk, wallet.pubkey);
@@ -33,16 +27,13 @@ export async function nwc(
 		sk,
 	);
 	return new Promise((resolve, reject) => {
-		const sub = relay.subscribe(
-			[{ kinds: [23195], authors: [wallet.pubkey], "#e": [request.id] }],
-			{
-				onevent(e) {
-					clearTimeout(timer);
-					sub.close();
-					resolve(JSON.parse(decrypt(e.content, key)));
-				},
+		const sub = relay.subscribe([{ kinds: [23195], authors: [wallet.pubkey], "#e": [request.id] }], {
+			onevent(e) {
+				clearTimeout(timer);
+				sub.close();
+				resolve(JSON.parse(decrypt(e.content, key)));
 			},
-		);
+		});
 		const timer = setTimeout(() => {
 			sub.close();
 			reject(new Error(`${method} got no reply within 30s`));
@@ -54,9 +45,7 @@ export async function nwc(
 async function main() {
 	const stack = loadStack();
 	const [payee] = stack.members;
-	const payer = stack.members.find(
-		(m) => m.name === (process.argv[2] ?? "member2") && m !== payee,
-	);
+	const payer = stack.members.find((m) => m.name === (process.argv[2] ?? "member2") && m !== payee);
 	if (!payer)
 		throw new Error(
 			`usage: scripts/route [payer], where payer is one of ${stack.members
@@ -73,8 +62,7 @@ async function main() {
 			description: "ajo route check",
 			expiry: 60,
 		});
-		if (!r.result?.invoice)
-			throw new Error(`${m.name} make_invoice failed: ${r.error?.code}`);
+		if (!r.result?.invoice) throw new Error(`${m.name} make_invoice failed: ${r.error?.code}`);
 		return r.result;
 	};
 	const pay = async (from: string, to: Member) => {
@@ -99,10 +87,7 @@ async function main() {
 	]);
 	const before = await snapshot(hubs);
 	const paid = await pay(payer.pay.uri, payee);
-	report(
-		!paid.code,
-		`${payer.name} pays ${payee.name} ${sat(amountMsat)} through the router: ${paid.text}`,
-	);
+	report(!paid.code, `${payer.name} pays ${payee.name} ${sat(amountMsat)} through the router: ${paid.text}`);
 	const settled = await Promise.all(
 		hubs.map((h) =>
 			expectDelta(h, before.get(h.name) ?? 0, want.get(h.name) ?? 0).then(
@@ -112,15 +97,9 @@ async function main() {
 		),
 	);
 	const again = await pay(payer.pay.uri, payee);
-	report(
-		again.code === "QUOTA_EXCEEDED",
-		`${payer.name} pays ${payee.name} again in the same month: ${again.text}`,
-	);
+	report(again.code === "QUOTA_EXCEEDED", `${payer.name} pays ${payee.name} again in the same month: ${again.text}`);
 	const scoped = await pay(payee.receive.uri, payer);
-	report(
-		scoped.code === "RESTRICTED",
-		`${payee.name}'s receive connection tries to pay: ${scoped.text}`,
-	);
+	report(scoped.code === "RESTRICTED", `${payee.name}'s receive connection tries to pay: ${scoped.text}`);
 	relay.close();
 
 	const after = await snapshot(hubs);
@@ -134,11 +113,9 @@ async function main() {
 	return ok ? 0 : 1;
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
-	process.exit(
-		await main().catch((e) => {
-			console.log(`FAIL ${(e as Error).message}`);
-			return 1;
-		}),
-	);
-}
+process.exit(
+	await main().catch((e) => {
+		console.log(`FAIL ${(e as Error).message}`);
+		return 1;
+	}),
+);
