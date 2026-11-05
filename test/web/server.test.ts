@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { test } from "node:test";
 import { fakeSource } from "../../src/web/fake.ts";
 import { createApp } from "../../src/web/server.ts";
@@ -72,11 +72,15 @@ test("the circle closes to new members once round 1 has run", async () => {
 	assert.match(await res.text(), /closed to new members/);
 });
 
-test("pages carry a script policy of self only, and an unknown round is a 404", async () => {
+test("pages carry a policy of self only plus the inlined stylesheet and script, and an unknown round is a 404", async () => {
 	const app = await circleOfFive(fakeSource());
 	const res = await app.request("/round/1");
-	assert.match(res.headers.get("content-security-policy") ?? "", /default-src 'self'/);
+	const csp = res.headers.get("content-security-policy") ?? "";
+	assert.match(csp, /default-src 'self'/);
+	const page = await res.text();
+	const hash = (tag: string) => `'sha256-${createHash("sha256").update(page.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`))?.[1] ?? "").digest("base64")}'`;
+	assert.ok(csp.includes(`style-src ${hash("style")}`), "the policy lets the inlined stylesheet apply");
+	assert.ok(csp.includes(`script-src ${hash("script")}`), "the policy lets the inlined script run");
 	assert.equal((await app.request("/round/6")).status, 404);
 	assert.equal((await app.request("/round/0")).status, 404);
-	assert.equal((await app.request("/app.js")).headers.get("content-type"), "text/javascript; charset=utf-8");
 });

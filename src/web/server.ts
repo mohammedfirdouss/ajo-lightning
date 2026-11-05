@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
@@ -10,6 +9,7 @@ import { fakeSource } from "./fake.ts";
 import { circlePage, createPage } from "./pages/circle.ts";
 import { joinPage } from "./pages/join.ts";
 import { receiptsPage } from "./pages/receipts.ts";
+import { inlineHashes } from "./pages/layout.ts";
 import { roundPage } from "./pages/round.ts";
 import { nwcLink, type RoundSource } from "./source.ts";
 
@@ -19,24 +19,16 @@ const name = (v: unknown) => {
 	return s.length >= 1 && s.length <= 40 ? s : undefined;
 };
 
-const publicDir = fileURLToPath(new URL("../../public/", import.meta.url));
-const asset = (file: string, type: string) => ({ body: readFileSync(publicDir + file, "utf8"), type });
-
 export function createApp(source: RoundSource, nairaPerSat: number) {
 	const m = money(nairaPerSat);
-	const assets = { "/app.css": asset("app.css", "text/css"), "/app.js": asset("app.js", "text/javascript") };
 	const collecting = new Map<number, Promise<RoundReport>>();
 	const app = new Hono();
 
 	app.use(
 		secureHeaders({
-			contentSecurityPolicy: { defaultSrc: ["'self'"], formAction: ["'self'"], frameAncestors: ["'none'"], imgSrc: ["'self'", "blob:"] },
+			contentSecurityPolicy: { defaultSrc: ["'self'"], formAction: ["'self'"], frameAncestors: ["'none'"], imgSrc: ["'self'", "blob:"], styleSrc: [inlineHashes.style], scriptSrc: [inlineHashes.script] },
 		}),
 	);
-
-	for (const [path, a] of Object.entries(assets)) {
-		app.get(path, (c) => c.body(a.body, 200, { "content-type": `${a.type}; charset=utf-8`, "cache-control": "public, max-age=300" }));
-	}
 
 	const rounds = async (count: number) => {
 		const out = [];
