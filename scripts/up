@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Starts bitcoind, the relay, the router, and MEMBERS member hubs (default 5), then runs the seed in the
-# foreground. Exits with the seed's status. Fewer members start fewer hubs, so MEMBERS=3 saves RAM.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 n=${MEMBERS:-5}

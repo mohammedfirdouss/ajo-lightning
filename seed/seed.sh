@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Converges the stack to: N funded member hubs, each with one announced channel to the router,
-# router fees at 1 sat, gossip settled, inbound pushed, and a pay and a receive NWC connection
-# per member. Every stage reads hub state first, so a cold boot and a warm restart run this same script.
 set -euo pipefail
 
 N=${MEMBERS:-5}
@@ -81,7 +78,7 @@ open_channel() {
   api "$1" POST /api/channels -d "{\"pubkey\":\"$r_pubkey\",\"amountSats\":$CHANNEL_SAT,\"public\":true}" >/dev/null
 }
 
-# Peer only a hub whose channel is down. Peering a connected hub by a new address drops the live connection.
+# Peering a connected hub by a new address drops the live connection.
 # Peering a down hub skips LDK's reconnect timer of about 60s after a restart.
 reconnect() {
   quiet active "$1" 1 || quiet api "$1" POST /api/peers -d "{\"pubkey\":\"$r_pubkey\",\"address\":\"router\",\"port\":9735}" || true
@@ -114,7 +111,7 @@ connections() {
     for id in $(jq -r --arg h "$h" '.[]|select(.name==$h+"-pay" or .name==$h+"-receive")|.id' <<<"$apps"); do
       api "$h" DELETE "/api/apps/$id" >/dev/null
     done
-    # POST /api/apps shares the unlock-password rate limiter, 1 request a second, so retry on 429.
+    # POST /api/apps shares the unlock-password rate limiter, 1 request a second.
     pay=$(waitfor_out create_app "$h" "$(jq -nc --arg n "$h-pay" --argjson max "$BUDGET" --arg pw "$PW" \
       '{name:$n, scopes:["pay_invoice","get_balance"], maxAmountSat:$max, budgetRenewal:"monthly", isolated:false, unlockPassword:$pw}')")
     recv=$(waitfor_out create_app "$h" "$(jq -nc --arg n "$h-receive" --arg pw "$PW" \

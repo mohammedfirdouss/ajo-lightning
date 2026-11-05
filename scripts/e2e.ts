@@ -94,10 +94,12 @@ const checks: [number, (stack: Stack) => Promise<string>][] = [
 			return "rerunning round 1 moved no member's balance";
 		},
 	],
-	// Pay budgets allow one contribution a month, so every round 1 payer is over its cap in round 2.
 	[
 		2,
 		async (stack) => {
+			if (stack.budgetSat >= 2 * stack.contributionSat) {
+				throw new Error(`a ${stack.budgetSat} sat pay budget covers two contributions, so no round 2 payer is over its cap`);
+			}
 			const before = await snapshot(stack.members);
 			const report = runRound(2);
 			const failed = report.contributions.filter((c) => c.state === "failed");
