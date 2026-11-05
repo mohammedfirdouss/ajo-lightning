@@ -1,0 +1,45 @@
+services:
+  bitcoind:
+    image: bitcoin/bitcoin:28.1
+    command:
+      - -regtest=1
+      - -server=1
+      - -txindex=1
+      - -fallbackfee=0.0002
+      - -rpcuser=spike
+      - -rpcpassword=spike
+      - -rpcbind=0.0.0.0
+      - -rpcallowip=0.0.0.0/0
+    volumes:
+      - bitcoind:/home/bitcoin/.bitcoin
+
+  relay:
+    image: scsibug/nostr-rs-relay:0.9.0
+    ports:
+      - "127.0.0.1:7000:8080"
+    volumes:
+      - relay:/usr/src/app/db
+
+  hub:
+    image: ghcr.io/getalby/hub:v1.24.6
+    depends_on: [bitcoind, relay]
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      WORK_DIR: /data/albyhub
+      NETWORK: regtest
+      LN_BACKEND_TYPE: LDK
+      LDK_BITCOIND_RPC_HOST: bitcoind
+      LDK_BITCOIND_RPC_PORT: "18443"
+      LDK_BITCOIND_RPC_USER: spike
+      LDK_BITCOIND_RPC_PASSWORD: spike
+      RELAY: ws://relay:8080
+      AUTO_UNLOCK_PASSWORD: spike-unlock-pw
+      LOG_LEVEL: "4"
+    volumes:
+      - hub:/data
+
+volumes:
+  bitcoind:
+  relay:
+  hub:

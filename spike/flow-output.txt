@@ -1,0 +1,56 @@
+
+balances before round (via NWC get_balance):
+┌─────────┬─────────┬─────────────┐
+│ (index) │ pay_sat │ receive_sat │
+├─────────┼─────────┼─────────────┤
+│ member1 │ 3000    │ 0           │
+│ member2 │ 3000    │ 0           │
+│ member3 │ 3000    │ 0           │
+│ member4 │ 3000    │ 0           │
+│ member5 │ 3000    │ 0           │
+└─────────┴─────────┴─────────────┘
+
+round: payee=member1, contribution=1000 sat
+member2 -> member1: paid, preimage=f81e993363831703..., fees_paid=0, payee lookup state=settled, 117ms
+member3 -> member1: paid, preimage=c8ae17863dfe8e6d..., fees_paid=0, payee lookup state=settled, 142ms
+member4 -> member1: paid, preimage=251343110abc6b29..., fees_paid=0, payee lookup state=settled, 148ms
+member5 -> member1: paid, preimage=f76f00ed0a484721..., fees_paid=0, payee lookup state=settled, 142ms
+
+balances after round (via NWC get_balance):
+┌─────────┬─────────┬─────────────┐
+│ (index) │ pay_sat │ receive_sat │
+├─────────┼─────────┼─────────────┤
+│ member1 │ 3000    │ 4000        │
+│ member2 │ 2000    │ 0           │
+│ member3 │ 2000    │ 0           │
+│ member4 │ 2000    │ 0           │
+│ member5 │ 2000    │ 0           │
+└─────────┴─────────┴─────────────┘
+payee receive delta = 4000 sat, expected 4000: OK
+
+over-budget: member2 pays a second contribution in the same budget period
+Failed to request pay_invoice Nip47WalletError: Your app does not have enough budget remaining to make this payment. Please review this app in the connections page of your Alby Hub.
+    at Subscription.onevent (file:///Users/amf/Desktop/Git-projects/bitcoin-hackathon/spike/node_modules/@getalby/sdk/dist/esm/nwc.js:7779:36)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  code: 'QUOTA_EXCEEDED'
+}
+rejected: Nip47WalletError code=QUOTA_EXCEEDED message="Your app does not have enough budget remaining to make this payment. Please review this app in the connections page of your Alby Hub."
+
+least privilege: member1's receive connection tries pay_invoice
+Failed to request pay_invoice Nip47WalletError: This app does not have the pay_invoice scope
+    at Subscription.onevent (file:///Users/amf/Desktop/Git-projects/bitcoin-hackathon/spike/node_modules/@getalby/sdk/dist/esm/nwc.js:7779:36)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  code: 'RESTRICTED'
+}
+rejected: Nip47WalletError code=RESTRICTED message="This app does not have the pay_invoice scope"
+
+balances final (via NWC get_balance):
+┌─────────┬─────────┬─────────────┐
+│ (index) │ pay_sat │ receive_sat │
+├─────────┼─────────┼─────────────┤
+│ member1 │ 3000    │ 4000        │
+│ member2 │ 2000    │ 0           │
+│ member3 │ 2000    │ 0           │
+│ member4 │ 2000    │ 0           │
+│ member5 │ 2000    │ 0           │
+└─────────┴─────────┴─────────────┘
