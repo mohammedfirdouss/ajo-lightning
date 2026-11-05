@@ -1,30 +1,30 @@
 import { parseArgs } from "node:util";
 import { sats } from "../round/types.ts";
 import { reminder } from "./reminders.ts";
-import { reminderInput } from "./templates.ts";
+import { type ReminderInput, reminderInput } from "./templates.ts";
 
-const { values } = parseArgs({
-	options: {
-		lang: { type: "string", default: "en" },
-		amount: { type: "string" },
-		due: { type: "string" },
-		member: { type: "string" },
-	},
-});
+const USAGE = "usage: scripts/remind --lang en|pcm|yo|fr|wo --amount <sats> --due YYYY-MM-DD --member <seat>";
 
-if (!values.amount || !values.due || !values.member) {
-	console.error("usage: scripts/remind --lang en|pcm|yo|fr|wo --amount <sats> --due YYYY-MM-DD --member <seat>");
-	process.exit(2);
-}
-
+let input: ReminderInput;
 try {
-	const input = reminderInput({ lang: values.lang, amount: sats(Number(values.amount)), due: values.due, member: Number(values.member) });
-	const start = performance.now();
-	const r = await reminder(input);
-	console.error(`source=${r.source} ms=${Math.round(performance.now() - start)}`);
-	console.log(r.text);
-	process.exit(0);
+	const { values } = parseArgs({
+		options: {
+			lang: { type: "string", default: "en" },
+			amount: { type: "string" },
+			due: { type: "string" },
+			member: { type: "string" },
+		},
+	});
+	if (!values.amount || !values.due || !values.member) throw new Error("--amount, --due and --member are required");
+	if (!/^\d+$/.test(values.amount)) throw new RangeError(`not a whole number of sats: ${JSON.stringify(values.amount)}`);
+	input = reminderInput({ lang: values.lang, amount: sats(Number(values.amount)), due: values.due, member: Number(values.member) });
 } catch (e) {
-	console.error((e as Error).message);
+	console.error(`${(e as Error).message}\n${USAGE}`);
 	process.exit(2);
 }
+
+const start = performance.now();
+const r = await reminder(input);
+console.error(`source=${r.source} ms=${Math.round(performance.now() - start)}`);
+console.log(r.text);
+process.exit(0);
