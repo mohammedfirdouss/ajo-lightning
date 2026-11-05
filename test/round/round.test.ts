@@ -170,7 +170,7 @@ test("NoPayerChargedTwice: a rerun after the payee wrongly reports a paid invoic
 	w.LatePaymentArrives();
 	w.RecordReply(m2);
 	assert.equal(w.charged.get(m2), 1000);
-	assert.equal(w.feed({ type: "lookupReplied", payer: m2, invoice: "expired" }).ok, true);
+	assert.equal(w.feed({ type: "lookupReplied", payer: m2, paymentHash: c.invoice.paymentHash, invoice: "expired" }).ok, true);
 	assert.equal(w.EndRound().ok, true);
 	assert.equal(w.round.phase, "partial");
 	w.RoundRunsAgain();
@@ -238,6 +238,23 @@ test("NoPayerChargedTwice: an invoice whose payment hash another payer holds is 
 	assert.equal(taken.state, "invoiced");
 	assert.equal(w.feed({ type: "invoiceMade", payer: m3, invoice: taken.invoice }).ok, false);
 	assert.deepEqual(w.contribution(m3), { state: "pending", payer: m3 });
+});
+
+test("RecordMatchesWalletAtEnd: a lookup reply about another invoice is rejected", () => {
+	const w = new World();
+	w.Start();
+	w.MakeInvoice(m2);
+	w.SendPay(m2);
+	w.WalletRefuses(m2, "QUOTA_EXCEEDED");
+	w.RecordReply(m2);
+	const c = w.contribution(m2);
+	const stale = invoiceFor("an-old-invoice").invoice.paymentHash;
+	for (const invoice of ["settled", "expired", "open"] as const) {
+		assert.equal(w.feed({ type: "lookupReplied", payer: m2, paymentHash: stale, invoice }).ok, false, invoice);
+		assert.deepEqual(w.contribution(m2), c);
+	}
+	w.LookupInvoice(m2);
+	assert.deepEqual(next(w.round), [{ type: "pay", payer: m2, invoice: invoiceFor("member2-0").invoice }]);
 });
 
 test("PayeeGetsAtMostThePot: an invoice for any amount but the contribution is rejected", () => {

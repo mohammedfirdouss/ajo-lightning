@@ -37,6 +37,7 @@ function step(c: Contribution, event: Extract<RoundEvent, { payer: MemberId }>, 
 			return { state: "paid", payer: c.payer, invoice: c.invoice, proof: { by: "preimage", preimage: event.preimage } };
 		case "lookupReplied":
 			if (c.state !== "invoiced" || (c.step !== "lookup" && c.step !== "lookupAtExpiry")) return `${c.payer} has no lookup to record`;
+			if (event.paymentHash !== c.invoice.paymentHash) return `the lookup reply is about ${event.paymentHash}, not ${c.payer}'s invoice`;
 			if (event.invoice === "settled") return { state: "paid", payer: c.payer, invoice: c.invoice, proof: { by: "payeeLookup" } };
 			if (event.invoice === "expired") return { state: "failed", payer: c.payer, invoice: c.invoice, tries: c.tries, reason: c.lastErr ?? "TIMEOUT" };
 			return { ...c, step: c.tries < round.maxTries ? "pay" : "lookupAtExpiry" };

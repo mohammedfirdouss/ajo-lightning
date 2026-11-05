@@ -173,7 +173,7 @@ export class World {
 		const state = this.invoices.get(cmd.invoice.paymentHash)?.state;
 		if (!state) throw new Error(`the payee's wallet never made ${cmd.invoice.paymentHash}`);
 		this.unresolved.delete(payer);
-		this.must({ type: "lookupReplied", payer, invoice: state });
+		this.must({ type: "lookupReplied", payer, paymentHash: cmd.invoice.paymentHash, invoice: state });
 	}
 
 	InvoiceExpires(hash: string) {

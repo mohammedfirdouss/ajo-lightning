@@ -74,7 +74,7 @@ export type RoundEvent =
 	| { type: "paySent"; payer: MemberId }
 	| { type: "payReplied"; payer: MemberId; preimage: Preimage }
 	| { type: "payReplied"; payer: MemberId; error: FailReason }
-	| { type: "lookupReplied"; payer: MemberId; invoice: "open" | "settled" | "expired" }
+	| { type: "lookupReplied"; payer: MemberId; paymentHash: PaymentHash; invoice: "open" | "settled" | "expired" }
 	| { type: "restarted" }
 	| { type: "rerun" }
 	| { type: "close" };

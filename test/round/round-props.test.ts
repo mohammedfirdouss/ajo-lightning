@@ -63,13 +63,15 @@ test(`random events in any order never pay without proof, reuse a hash, reopen a
 		const log: string[] = [];
 		for (let i = 0; i < 60; i++) {
 			const payer = pick(rand, payers);
+			const held = round.contributions.find((c) => c.payer === payer);
+			const lookedUp = held && "invoice" in held && rand() < 0.5 ? held.invoice : pick(rand, pool).invoice;
 			const event = pick<RoundEvent>(rand, [
 				{ type: "start" },
 				{ type: "invoiceMade", payer, invoice: pick(rand, pool).invoice },
 				{ type: "paySent", payer },
 				{ type: "payReplied", payer, preimage: pick(rand, pool).preimage },
 				{ type: "payReplied", payer, error: pick(rand, reasons) },
-				{ type: "lookupReplied", payer, invoice: pick(rand, ["open", "settled", "expired"] as const) },
+				{ type: "lookupReplied", payer, paymentHash: lookedUp.paymentHash, invoice: pick(rand, ["open", "settled", "expired"] as const) },
 				{ type: "restarted" },
 				{ type: "rerun" },
 				{ type: "close" },
@@ -89,6 +91,7 @@ test(`random events in any order never pay without proof, reuse a hash, reopen a
 				const lookup = { state: "invoiced", payer, invoice, step: "lookup", tries, lastErr: reason };
 				assert.deepEqual(after, lookup, `a rerun looks up the stored invoice, ${why}`);
 			}
+			if (r.ok && event.type === "lookupReplied") assert.equal(event.paymentHash, before && "invoice" in before && before.invoice.paymentHash, why);
 			if (after?.state === "paid" && before?.state !== "paid") {
 				seen.add(event.type);
 				const proved =
