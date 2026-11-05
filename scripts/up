@@ -3,5 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 n=${MEMBERS:-5}
 [[ $n =~ ^[2-5]$ ]] || { echo "MEMBERS must be 2 to 5, got $n" >&2; exit 2; }
-docker compose up -d bitcoind relay router $(seq 1 "$n" | sed 's/^/member/')
+members=()
+for i in $(seq 1 "$n"); do members+=("member$i"); done
+docker compose up -d bitcoind relay router "${members[@]}"
 MEMBERS=$n docker compose up --build --no-deps --exit-code-from seed seed
