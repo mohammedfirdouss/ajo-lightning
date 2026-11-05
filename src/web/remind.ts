@@ -3,7 +3,6 @@ import { LANGUAGES, type ReminderInput } from "../reminders/templates.ts";
 import type { RoundId } from "../round/types.ts";
 import type { Cadence } from "./source.ts";
 
-/** Round n falls due n - 1 weeks or months after the circle's start date. */
 export function dueDate(start: string, cadence: Cadence, n: RoundId) {
 	const d = new Date(`${start}T00:00:00Z`);
 	if (cadence === "weekly") d.setUTCDate(d.getUTCDate() + 7 * (n - 1));

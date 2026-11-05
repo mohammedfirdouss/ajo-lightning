@@ -73,9 +73,9 @@ export function openStore(file: string, key: Buffer) {
 			const row = db.prepare("SELECT sealed FROM circle WHERE id = 1").get() as { sealed: string } | undefined;
 			return row && JSON.parse(open(key, row.sealed));
 		},
-		/** The first circle wins. Returns false when one is already stored. */
-		createCircle(circle: object): boolean {
-			return db.prepare("INSERT OR IGNORE INTO circle (id, sealed) VALUES (1, ?)").run(seal(key, JSON.stringify(circle))).changes === 1;
+		/** The first circle wins. */
+		createCircle(circle: object) {
+			db.prepare("INSERT OR IGNORE INTO circle (id, sealed) VALUES (1, ?)").run(seal(key, JSON.stringify(circle)));
 		},
 		round(id: RoundId): Round | undefined {
 			const row = db.prepare("SELECT round FROM rounds WHERE id = ?").get(id) as { round: string } | undefined;
