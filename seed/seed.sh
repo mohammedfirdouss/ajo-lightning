@@ -121,7 +121,7 @@ connection() {
   apps=$(api "$h" GET /api/apps)
   if [ -s $STATE ]; then jq -c --arg h "$h" --arg k "$kind" '.members[]|select(.name==$h)|.[$k]' $STATE > "$out"; fi
   if [ -s "$out" ] && jq -e --slurpfile prev "$out" --argjson s "$SPEC" --arg k "$kind" --arg n "$h-$kind" \
-    'any(.apps[]; .id == $prev[0].id and .name == $n and {scopes: (.scopes|sort), maxAmountSat, budgetRenewal} == $s[$k])' \
+    'any(.apps[]; .id == $prev[0].id and .name == $n and {scopes: (.scopes|sort), maxAmountSat} == ($s[$k]|{scopes, maxAmountSat}))' \
     <<<"$apps" >/dev/null; then
     return 0
   fi
