@@ -56,10 +56,12 @@ export type Invoiced = {
 /** A wallet can claim success, so a payment counts only with a preimage that hashes to the invoice, or the payee's word. */
 export type Proof = { by: "preimage"; preimage: Preimage } | { by: "payeeLookup" };
 export type Paid = { state: "paid"; payer: MemberId; invoice: Invoice; proof: Proof };
+/** Only a lookup that finds the invoice expired unpaid makes one, so its invoice can never settle and a rerun may retry it. */
 export type Failed = { state: "failed"; payer: MemberId; invoice: Invoice; reason: FailReason };
 export type Contribution = Pending | Invoiced | Paid | Failed;
 
-type Common = { id: RoundId; payee: MemberId; contribution: Sats; maxTries: number; reruns: number };
+/** `retired` keeps each failed contribution a rerun replaced, so its expired invoice stays on record and its hash stays used. */
+type Common = { id: RoundId; payee: MemberId; contribution: Sats; maxTries: number; reruns: number; retired: readonly Failed[] };
 
 export type Round =
 	| (Common & { phase: "scheduled"; contributions: readonly Pending[] })

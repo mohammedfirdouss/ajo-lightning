@@ -9,13 +9,14 @@ export function newRound({ id, payee, payers, contribution, maxTries = 2 }: Roun
 	if (new Set(payers).size !== payers.length) throw new RangeError("a payer is listed twice");
 	if (!Number.isSafeInteger(maxTries) || maxTries < 1) throw new RangeError(`maxTries must be at least 1, got ${maxTries}`);
 	const contributions = payers.map((payer) => ({ state: "pending" as const, payer }));
-	return { id, payee, contribution, maxTries, reruns: 0, phase: "scheduled", contributions };
+	return { id, payee, contribution, maxTries, reruns: 0, retired: [], phase: "scheduled", contributions };
 }
 
 const proves = (invoice: Invoice, preimage: unknown) =>
 	typeof preimage === "string" && createHash("sha256").update(Buffer.from(preimage, "hex")).digest("hex") === invoice.paymentHash;
 
-const usedHashes = (round: Round) => round.contributions.flatMap((c) => ("invoice" in c ? [c.invoice.paymentHash] : []));
+const usedHashes = (round: Round) =>
+	[...round.contributions, ...round.retired].flatMap((c) => ("invoice" in c ? [c.invoice.paymentHash] : []));
 
 function step(c: Contribution, event: Extract<RoundEvent, { payer: MemberId }>, round: Round): Contribution | string {
 	switch (event.type) {
@@ -58,9 +59,13 @@ export function apply(round: Round, event: RoundEvent): Applied {
 			const contributions = round.contributions.map((c) => (c.state === "invoiced" ? { ...c, step: "lookup" as const } : c));
 			return { ok: true, round: { ...round, contributions } };
 		}
-		case "rerun":
+		case "rerun": {
 			if (round.phase !== "partial") return reject(`only a partial round runs again, round ${round.id} is ${round.phase}`);
-			return { ok: true, round: { ...round, phase: "collecting", reruns: round.reruns + 1 } };
+			const failed = round.contributions.filter((c): c is Failed => c.state === "failed");
+			const contributions = round.contributions.map((c) => (c.state === "failed" ? { state: "pending" as const, payer: c.payer } : c));
+			const retired = [...round.retired, ...failed];
+			return { ok: true, round: { ...round, phase: "collecting", reruns: round.reruns + 1, retired, contributions } };
+		}
 		case "close": {
 			if (round.phase !== "collecting") return reject(`round ${round.id} is ${round.phase}, not collecting`);
 			const open = round.contributions.find((c) => !settled(c));

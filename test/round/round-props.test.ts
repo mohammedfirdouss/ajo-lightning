@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
+import { isDeepStrictEqual } from "node:util";
 import { apply, next } from "../../src/round/round.ts";
 import { type FailReason, memberId, type RoundEvent } from "../../src/round/types.ts";
 import { invoiceFor, MODEL_ACTIONS, type ModelAction, World } from "./world.ts";
@@ -51,7 +52,7 @@ test(`the five model rules and NoPayWhileUnresolved hold and every round ends, o
 
 const hashOf = (preimage: string) => createHash("sha256").update(Buffer.from(preimage, "hex")).digest("hex");
 
-test(`random events in any order never pay without proof, reuse a hash, or reopen a settled contribution, over ${RUNS} runs`, () => {
+test(`random events in any order never pay without proof, reuse a hash, or reopen a contribution outside a rerun, over ${RUNS} runs`, () => {
 	const payers = ["member2", "member3"].map(memberId);
 	const reasons: FailReason[] = ["QUOTA_EXCEEDED", "INSUFFICIENT_BALANCE", "PAYMENT_FAILED", "TIMEOUT"];
 	const pool = Array.from({ length: 6 }, (_, k) => invoiceFor(`h${k}`));
@@ -81,8 +82,17 @@ test(`random events in any order never pay without proof, reuse a hash, or reope
 			if (!r.ok) assert.deepEqual(r.round, round, `a rejected event changed the round, ${why}`);
 			round = r.round;
 			const after = round.contributions.find((c) => c.payer === payer);
-			if (before && before.state !== "pending") assert.deepEqual(after && "invoice" in after && after.invoice, before.invoice, why);
-			if (before?.state === "paid" || before?.state === "failed") assert.deepEqual(after, before, why);
+			const retried = r.ok && event.type === "rerun" && before?.state === "failed";
+			if (retried) {
+				assert.deepEqual(after, { state: "pending", payer }, why);
+				assert.ok(
+					round.retired.some((x) => isDeepStrictEqual(x, before)),
+					`a retried contribution keeps its record, ${why}`,
+				);
+			} else {
+				if (before && before.state !== "pending") assert.deepEqual(after && "invoice" in after && after.invoice, before.invoice, why);
+				if (before?.state === "paid" || before?.state === "failed") assert.deepEqual(after, before, why);
+			}
 			if (after?.state === "paid" && before?.state !== "paid") {
 				seen.add(event.type);
 				const proved =
@@ -95,7 +105,7 @@ test(`random events in any order never pay without proof, reuse a hash, or reope
 							after.proof.preimage === event.preimage;
 				assert.ok(proved, `paid without proof, ${why}`);
 			}
-			const hashes = round.contributions.flatMap((c) => ("invoice" in c ? [c.invoice.paymentHash] : []));
+			const hashes = [...round.contributions, ...round.retired].flatMap((c) => ("invoice" in c ? [c.invoice.paymentHash] : []));
 			assert.equal(new Set(hashes).size, hashes.length, `two invoices share a payment hash, ${why}`);
 			if (round.phase === "complete")
 				assert.ok(

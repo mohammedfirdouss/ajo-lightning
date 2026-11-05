@@ -135,24 +135,44 @@ test("NoPayerChargedTwice: an open invoice past the try limit is only looked up,
 	assert.equal(w.round.phase, "partial");
 });
 
-test("NoPayerChargedTwice: running a partial round again asks no wallet to pay", () => {
-	const w = new World();
+test("NoPayerChargedTwice: a rerun retries a failed payer on a fresh invoice, since the expired one can never settle", () => {
+	const w = new World(["member2", "member3"]);
 	w.Start();
 	w.MakeInvoice(m2);
-	const c = w.contribution(m2);
-	assert.equal(c.state, "invoiced");
-	w.InvoiceExpires(c.invoice.paymentHash);
+	w.MakeInvoice(m3);
+	w.SendPay(m3);
+	w.WalletSends(m3);
+	w.PaymentArrives(m3);
+	w.RecordReply(m3);
+	const old = w.contribution(m2);
+	assert.equal(old.state, "invoiced");
+	w.InvoiceExpires(old.invoice.paymentHash);
 	w.SendPay(m2);
 	w.WalletSends(m2);
 	w.PaymentArrives(m2);
 	w.RecordReply(m2);
 	lookupAndClose(w);
-	assert.deepEqual(w.contribution(m2), { state: "failed", payer: m2, invoice: c.invoice, reason: "TIMEOUT" });
-	w.RoundRunsAgain();
-	assert.deepEqual(commandTypes(w), ["close"]);
-	assert.equal(w.EndRound().ok, true);
 	assert.equal(w.round.phase, "partial");
-	assert.equal(w.charged.get(m2) ?? 0, 0);
+	const failed = w.contribution(m2);
+	assert.deepEqual(failed, { state: "failed", payer: m2, invoice: old.invoice, reason: "TIMEOUT" });
+
+	w.RoundRunsAgain();
+	assert.deepEqual(next(w.round), [{ type: "makeInvoice", payer: m2, amount: sats(1000) }], "only the failed payer is asked again");
+	assert.deepEqual(w.round.retired, [failed]);
+	assert.equal(w.feed({ type: "invoiceMade", payer: m2, invoice: old.invoice }).ok, false, "the expired invoice is not reused");
+	w.MakeInvoice(m2);
+	const fresh = w.contribution(m2);
+	assert.equal(fresh.state, "invoiced");
+	assert.notEqual(fresh.invoice.paymentHash, old.invoice.paymentHash);
+	w.SendPay(m2);
+	w.WalletSends(m2);
+	w.PaymentArrives(m2);
+	w.RecordReply(m2);
+	assert.equal(w.EndRound().ok, true);
+	assert.equal(w.round.phase, "complete");
+	assert.equal(w.charged.get(m2), 1000);
+	assert.equal(w.charged.get(m3), 1000);
+	assert.deepEqual(w.brokenRules(), []);
 });
 
 test("CompleteMeansEveryonePaid: a pay reply without a preimage that hashes to the invoice is not proof", () => {
