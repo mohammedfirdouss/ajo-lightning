@@ -190,6 +190,7 @@ async function runFromState(id: RoundId, stateDir: string) {
 	const seed = JSON.parse(readFileSync(`${stateDir}/connections.json`, "utf8")) as Seed;
 	const store = openStore(`${stateDir}/ajo.db`, key);
 	try {
+		if (store.round(id)?.phase === "collecting") console.error(`run-round: round ${id} was interrupted last time, resuming it from the stored invoices`);
 		return await runRound(id, {
 			store,
 			members: circleMembers(store, seed),
@@ -229,11 +230,18 @@ async function main(arg: string | undefined) {
 	const stateDir = process.env.AJO_STATE_DIR;
 	if (!stateDir) {
 		const key = ensureKeys();
-		const r = spawnSync("docker", ["compose", "run", "--rm", "--no-deps", "-T", "app", "node", "src/run-round.ts", String(id)], {
+		const name = `ajo-round-${id}-${process.pid}`;
+		process.on("SIGINT", () => {});
+		const r = spawnSync("docker", ["compose", "run", "--rm", "--no-deps", "-T", "--name", name, "app", "node", "src/run-round.ts", String(id)], {
 			cwd: root,
 			encoding: "utf8",
 			stdio: ["ignore", "pipe", "inherit"],
 		});
+		if (r.status === 130 || r.signal) {
+			spawnSync("docker", ["stop", name], { stdio: "ignore" });
+			console.error(`run-round: interrupted, run node src/run-round.ts ${id} again to resume`);
+			return 130;
+		}
 		const lines = (r.stdout ?? "").trim().split("\n");
 		if (r.status !== 0) {
 			process.stdout.write(r.stdout ?? "");
@@ -244,6 +252,7 @@ async function main(arg: string | undefined) {
 		console.log(lines.slice(0, -1).concat(JSON.stringify(report)).join("\n"));
 		return 0;
 	}
+	for (const signal of ["SIGINT", "SIGTERM"] as const) process.once(signal, () => process.exit(130));
 	console.log(JSON.stringify(await runFromState(id, stateDir)));
 	return 0;
 }
