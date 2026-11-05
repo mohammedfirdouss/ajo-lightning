@@ -9,7 +9,7 @@ The runner collects each payment on a hold invoice from the payee's receive link
 - At expiry the runner fails the contribution and sends `cancel_hold_invoice`. A payment that reaches the hub later is held and never settled.
 - A rerun of a partial round only cancels the failed invoices again. That cancel refunds a payment the hub accepted after the first cancel failed.
 - Once a settle has left the runner, its clock no longer fails that payment. The rerun then reads the hub's `settled`.
-- Every wallet call waits at most 10 seconds and never past the round's 100 second budget, so a payee hub that stops answering cannot stretch a run.
+- A pay call waits at most 20 seconds and every other wallet call at most 10 seconds, and none waits past the round's 100 second budget, so a payee hub that stops answering cannot stretch a run.
 
 ## How to get to it (user POV)
 
