@@ -21,5 +21,6 @@ Start the server per [web-circle.md](web-circle.md). On the live stack, take rea
 ## Gotchas
 
 - Screenshot the form only after filling, since the fields are masked. Never write a link into `$EVIDENCE`.
+- Nothing reads a link's permissions yet, so a receive link that can spend, or two swapped links, still join. The hint tells members which permissions to give. A `get_info` check comes with the NWC source.
 - The pay hint asks for a limit that renews as often as the circle pays, weekly or monthly.
 - The fake gives every member a limit of contribution plus max(1%, 10 sat), the same budget the seed sets.

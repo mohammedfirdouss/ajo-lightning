@@ -18,7 +18,7 @@ ${error ? html`<p class="error" role="alert">${error}</p>` : ""}
 <span class="hint">Make it with a ${circle.cadence} limit. Ajo can never spend more than that limit.</span></label>
 <label>Receive link from your wallet
 <input type="password" name="receive" required autocomplete="off" spellcheck="false" data-scan placeholder="nostr+walletconnect://…">
-<span class="hint">It can only make invoices and check them. It cannot spend.</span></label>
+<span class="hint">Give it only the permissions to create invoices and look them up, so it cannot spend.</span></label>
 <button>Join</button>
 </form>
 <p class="note">Ajo keeps your links locked and never shows them again.</p>`,
