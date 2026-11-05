@@ -19,7 +19,7 @@ Preconditions:
 - A fresh stack from `./scripts/up`. Round 1 must not have run on it.
 
 - **Run.** Run `cap e2e ./scripts/e2e`. Without `src/run-round.ts` the transcript is `FAIL check 1 no round runner yet` and `exit=1`. With a runner it shows `PASS check 1`, `PASS check 3`, `PASS check 4`, and `PASS check 2`, in that order, and `exit=0`.
-- **Self-test.** Run `cap e2e-selftest npm test`. Twelve tests pass, and the transcript ends with `exit=0`.
+- **Self-test.** Run `cap e2e-selftest npm test e2e-selftest`. Twelve tests pass, and the transcript ends with `exit=0`.
 
 ## Gotchas
 
