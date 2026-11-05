@@ -12,4 +12,4 @@ Built for the [Dakar Bitcoin Hack 2026](https://dakar-bitcoin-hack-2026.devpost.
 scripts/remind --lang fr --amount 4000 --due 2026-11-12 --member 3
 ```
 
-`ANTHROPIC_API_KEY` is optional. With a key, Claude writes the message and sees only the language, the seat label, the amount, and the due date. Without a key, or when the call fails or takes longer than 3.5 seconds, the script prints a fixed template. A bad argument prints the usage line and exits 2. The Yoruba and Wolof templates still need a check by a native speaker.
+`ANTHROPIC_API_KEY` is optional. With a key, Claude Haiku 5.5 (`claude-haiku-5-5`) writes the message and sees only the language, the seat label, the amount, and the due date. Without a key, or when the call fails or takes longer than 3.5 seconds, the script prints a fixed template. A bad argument prints the usage line and exits 2. The Yoruba and Wolof templates still need a check by a native speaker.
