@@ -97,7 +97,7 @@ export function openStore(file: string, key: Buffer) {
 			const row = db.prepare("SELECT sealed FROM holds WHERE round = ? AND payer = ?").get(round, payer) as { sealed: string };
 			return preimage(open(key, row.sealed));
 		},
-		/** Set before the preimage leaves the runner. From then on the payee may hold the sats, so the runner's clock can no longer fail the payment. */
+		/** Set before the preimage leaves the runner. From then on the payee may have the sats, so the runner's clock can no longer fail the payment. */
 		markSettleSent(round: RoundId, payer: MemberId) {
 			db.prepare("UPDATE holds SET settle_sent = 1 WHERE round = ? AND payer = ?").run(round, payer);
 		},

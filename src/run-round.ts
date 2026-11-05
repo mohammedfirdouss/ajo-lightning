@@ -16,12 +16,10 @@ const INVOICE_EXPIRY_SEC = 30;
 const LOOKUP_POLL_MS = 3_000;
 /** A lookup that fails at once must not turn the wait for an invoice into a busy loop. */
 const LOOKUP_GAP_MS = { min: 500, max: 4_000 };
-/** How often the runner checks whether the payee's hub holds a payment while the payer's wallet waits on it. */
 const ACCEPT_POLL_MS = 500;
 /** The most one wallet call may wait, so a silent hub still leaves time to try the others. */
 const REPLY_MS = 10_000;
 const RUN_BUDGET_MS = 100_000;
-/** The tail of the budget kept for publishing receipts. */
 const PUBLISH_MS = 5_000;
 const KEYS = ["AJO_SECRET_KEY", "AJO_CIRCLE_KEY"] as const;
 
