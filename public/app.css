@@ -132,6 +132,8 @@ button.scan, button.alt { background: transparent; color: var(--indigo); border:
 .row.notpaid { background: var(--bad-bg); }
 .row.notpaid::before { border-color: var(--bad); border-style: dashed; }
 .row.notpaid .word { color: var(--bad); }
+.remind { grid-column: 2; margin-top: 8px; padding: 10px 12px; border-left: 3px solid var(--gold); border-radius: 10px; background: var(--card); font-size: 0.9375rem; }
+.remind p { margin: 0 0 8px; }
 .demo { margin-top: 12px; padding-top: 16px; border-top: 1px dashed var(--line); gap: 12px; }
 .demo p { margin: 0; }
 

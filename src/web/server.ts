@@ -6,11 +6,12 @@ import { type Context, Hono } from "hono";
 import { secureHeaders } from "hono/secure-headers";
 import type { RoundReport } from "../../scripts/e2e.ts";
 import { publish } from "../receipts/nostr.ts";
+import type { ReminderInput } from "../reminders/templates.ts";
 import { stateKeys } from "../run-round.ts";
-import { roundId, sats } from "../round/types.ts";
+import { type MemberId, type Round, roundId, sats } from "../round/types.ts";
 import { openStore } from "../store/sqlite.ts";
 import { connect, linkInfo } from "../wallet/nwc.ts";
-import { money } from "./copy.ts";
+import { money, status } from "./copy.ts";
 import { fakeSource } from "./fake.ts";
 import { nwcSource } from "./nwc-source.ts";
 import { circlePage, createPage } from "./pages/circle.ts";
@@ -19,6 +20,7 @@ import { receiptsPage } from "./pages/receipts.ts";
 import { inlineHashes } from "./pages/layout.ts";
 import { roundPage } from "./pages/round.ts";
 import { limiter, lock, opens, PASSCODE } from "./passcode.ts";
+import { dueDate, reminders } from "./remind.ts";
 import { type Circle, type Links, nwcLink, type RoundSource } from "./source.ts";
 
 const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
@@ -29,9 +31,9 @@ const name = (v: unknown) => {
 
 const LANGS = new Set(["en", "pcm", "yo", "fr", "wo"]);
 
-export type AppOptions = { wrong?: ReturnType<typeof limiter> };
+export type AppOptions = { remind?: (input: ReminderInput) => string; wrong?: ReturnType<typeof limiter> };
 
-export function createApp(source: RoundSource, nairaPerSat: number, { wrong = limiter() }: AppOptions = {}) {
+export function createApp(source: RoundSource, nairaPerSat: number, { remind = reminders(), wrong = limiter() }: AppOptions = {}) {
 	const m = money(nairaPerSat);
 	const collecting = new Map<number, Promise<RoundReport>>();
 	const app = new Hono();
@@ -56,6 +58,17 @@ export function createApp(source: RoundSource, nairaPerSat: number, { wrong = li
 		}
 		wrong.fail(addr(c));
 		return { status: 403 as const, text: "That passcode is not this circle's. Ask the organiser for it." };
+	};
+
+	const remindersFor = (circle: Circle, round: Round) => {
+		const seat = new Map(circle.members.map((x, i) => [x.id, i + 1]));
+		const due = dueDate(circle.start, circle.cadence, round.id);
+		const out = new Map<MemberId, string>();
+		for (const c of round.contributions) {
+			if (status(c).tone === "paid") continue;
+			out.set(c.payer, remind({ lang: circle.lang, amount: round.contribution, due, member: seat.get(c.payer) ?? 0 }));
+		}
+		return out;
 	};
 
 	app.use(
@@ -135,14 +148,14 @@ export function createApp(source: RoundSource, nairaPerSat: number, { wrong = li
 	app.get("/round/:n", async (c) => {
 		const found = await roundParam(c.req.param("n"));
 		if (!found) return c.notFound();
-		return c.html(roundPage(found.circle, found.round, m));
+		return c.html(roundPage(found.circle, found.round, m, { reminders: remindersFor(found.circle, found.round) }));
 	});
 
 	app.post("/round/:n/collect", async (c) => {
 		const found = await roundParam(c.req.param("n"));
 		if (!found) return c.notFound();
 		const refused = await refuse(c, found.circle, (await c.req.parseBody()).passcode);
-		if (refused) return c.html(roundPage(found.circle, found.round, m, { error: refused.text }), refused.status);
+		if (refused) return c.html(roundPage(found.circle, found.round, m, { error: refused.text, reminders: remindersFor(found.circle, found.round) }), refused.status);
 		const n = found.round.id;
 		if (!collecting.has(n) && found.round.phase !== "complete") {
 			const run = source.collect(n).finally(() => collecting.delete(n));

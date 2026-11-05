@@ -1,19 +1,20 @@
 import { html } from "hono/html";
-import type { Round } from "../../round/types.ts";
+import type { MemberId, Round } from "../../round/types.ts";
 import { type Money, roundWord, status } from "../copy.ts";
 import type { Circle } from "../source.ts";
 import { beadRing } from "./beads.ts";
 import { passcodeToEnter } from "./circle.ts";
 import { type Html, layout } from "./layout.ts";
 
-export type RoundView = { error?: string };
+/** `reminders` holds the text for each payer who has not paid yet. */
+export type RoundView = { error?: string; reminders?: ReadonlyMap<MemberId, string> };
 
 const action: Partial<Record<Round["phase"], string>> = {
 	scheduled: "Collect this round",
 	partial: "Try the unpaid members again",
 };
 
-export function roundPage(circle: Circle, round: Round, m: Money, { error }: RoundView = {}): Html {
+export function roundPage(circle: Circle, round: Round, m: Money, { error, reminders }: RoundView = {}): Html {
 	const names = new Map(circle.members.map((x) => [x.id, x.name]));
 	const rows = round.contributions.map((c) => ({ c, s: status(c) }));
 	const paid = rows.filter((r) => r.s.tone === "paid").length;
@@ -40,8 +41,12 @@ ${beadRing(
 <p><b class="phase">${roundWord[round.phase]}</b> · ${paid} paid · ${count("waiting")} waiting · ${count("notpaid")} not paid</p>
 </section>
 <ul class="rows">${rows.map(
-			({ c, s }) =>
-				html`<li class="row ${s.tone}" data-member="${c.payer}"><b>${names.get(c.payer)}</b><span><span class="word">${s.word}</span>${s.detail ? html`, ${s.detail}` : ""}</span></li>`,
+			({ c, s }) => {
+				const text = reminders?.get(c.payer);
+				return html`<li class="row ${s.tone}" data-member="${c.payer}"><b>${names.get(c.payer)}</b><span><span class="word">${s.word}</span>${s.detail ? html`, ${s.detail}` : ""}</span>${
+					text ? html`<div class="remind"><p>${text}</p><button type="button" class="alt" data-copy="${text}">Copy for WhatsApp</button></div>` : ""
+				}</li>`;
+			},
 		)}</ul>
 ${
 	label

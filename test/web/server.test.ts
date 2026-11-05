@@ -14,7 +14,7 @@ const passcode = "market-day";
 const collect = (code = passcode) => form({ passcode: code });
 
 async function circleOfFive(source: RoundSource, options?: AppOptions) {
-	const app = createApp(source, 1.5, options);
+	const app = createApp(source, 1.5, { remind: () => "template", ...options });
 	assert.equal((await app.request("/circle", form({ name: "Market ajo", contribution: "1000", cadence: "monthly", lang: "en", passcode }))).status, 303);
 	for (const name of names) assert.equal((await app.request("/join", form({ name, passcode, pay: link(), receive: link() }))).status, 303);
 	return app;
@@ -104,7 +104,7 @@ test("joining and collecting need the circle's passcode, and the receipts stay p
 
 test("a circle needs a passcode of at least 6 characters, and the store keeps only its hash", async () => {
 	const source = fakeSource();
-	const app = createApp(source, 1.5);
+	const app = createApp(source, 1.5, { remind: () => "template" });
 	const short = await app.request("/circle", form({ name: "Market ajo", contribution: "1000", cadence: "monthly", lang: "en", passcode: "12345" }));
 	assert.equal(short.status, 422);
 	assert.match(await short.text(), /passcode of 6 to 64 characters/);
@@ -123,6 +123,20 @@ test("after five wrong passcodes even the right one waits out the window", async
 	assert.match(await locked.text(), /Too many wrong passcodes. Try again in 1 minute\./);
 	now = 60_001;
 	assert.equal((await app.request("/round/1/collect", collect())).status, 303);
+});
+
+test("a waiting payer's reminder comes from the reminder writer for their seat, language and due date", async () => {
+	const asked: unknown[] = [];
+	const app = await circleOfFive(fakeSource({ spentSat: { member3: 1000 } }), {
+		remind: (input) => {
+			asked.push(input);
+			return `Member ${input.member} owes ${input.amount}`;
+		},
+	});
+	await app.request("/round/1/collect", collect());
+	const page = await until(async () => (await app.request("/round/1")).text(), /data-live="0"/);
+	assert.match(page, /data-member="member3">[\s\S]*?Member 3 owes 1000[\s\S]*?Copy for WhatsApp/);
+	assert.deepEqual(asked.at(-1), { lang: "en", amount: 1000, due: new Date().toISOString().slice(0, 10), member: 3 });
 });
 
 test("the demo wallets join through the same checks as pasted links", async () => {
