@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { circlePubkey, publish, receiptEvent } from "./receipts/nostr.ts";
 import { apply, newRound, next } from "./round/round.ts";
 import type { RoundReport } from "../scripts/e2e.ts";
-import { loadStack } from "../scripts/stack.ts";
+import { compose, loadStack } from "../scripts/stack.ts";
 import type { Event } from "nostr-tools/pure";
 import { type Command, type Contribution, type FailReason, HEX32, type Invoice, type MemberId, type Round, type RoundEvent, type RoundId, roundId, type Sats, sats } from "./round/types.ts";
 import { type Member, openStore, pseudonym, type Store } from "./store/sqlite.ts";
@@ -43,10 +43,28 @@ const refused = (reason: FailReason | undefined) => reason === "QUOTA_EXCEEDED" 
 const mayBeInFlight = (c: Contribution) =>
 	(c.state === "invoiced" && c.tries > 0 && (c.step === "paying" || !refused(c.lastErr))) || (c.state === "failed" && !refused(c.reason));
 
-function hexKey(name: (typeof KEYS)[number]) {
-	const v = process.env[name] ?? "";
-	if (!HEX32.test(v)) throw new Error(`${name} must be 64 lowercase hex in .env, run node src/run-round.ts from the host once to create it`);
-	return Buffer.from(v, "hex");
+const STATE_KEYS = "keys.env";
+const keyIn = (text: string, name: (typeof KEYS)[number]) => new RegExp(`^${name}=([0-9a-f]{64})$`, "m").exec(text)?.[1];
+const newKeys = () => KEYS.map((k) => `${k}=${randomBytes(32).toString("hex")}\n`).join("");
+
+/**
+ * Compose passes the keys from `.env`. Before any host run has written `.env`, the stack keeps its own pair in
+ * the state volume, so a bare `docker compose up` works, and the first host run copies that pair into `.env`.
+ */
+export function stateKeys(stateDir: string) {
+	const file = `${stateDir}/${STATE_KEYS}`;
+	const fromEnv = (k: (typeof KEYS)[number]) => (HEX32.test(process.env[k] ?? "") ? process.env[k] : undefined);
+	let stored = "";
+	if (!KEYS.every(fromEnv)) {
+		try {
+			writeFileSync(file, newKeys(), { mode: 0o600, flag: "wx" });
+		} catch (e) {
+			if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+		}
+		stored = readFileSync(file, "utf8");
+	}
+	const key = (k: (typeof KEYS)[number]) => Buffer.from(fromEnv(k) ?? keyIn(stored, k) ?? "", "hex");
+	return { secretKey: key("AJO_SECRET_KEY"), circleKey: key("AJO_CIRCLE_KEY") };
 }
 
 type Seed = { contributionSat: number; members: { name: string; pay: { uri: string }; receive: { uri: string } }[] };
@@ -68,7 +86,7 @@ function resume(round: Round): Round {
 	return a.round;
 }
 
-export type RoundStore = Omit<Store, "members" | "addMembers" | "close">;
+export type RoundStore = Omit<Store, "members" | "addMembers" | "circle" | "createCircle" | "close">;
 export type RunEnv = {
 	store: RoundStore;
 	members: readonly Member[];
@@ -184,11 +202,11 @@ export async function runRound(id: RoundId, { store, members, connect, publish, 
 }
 
 async function runFromState(id: RoundId, stateDir: string) {
-	const key = hexKey("AJO_SECRET_KEY");
-	const circleKey = hexKey("AJO_CIRCLE_KEY");
+	const { secretKey, circleKey } = stateKeys(stateDir);
 	const relayUrl = process.env.AJO_RELAY_URL ?? "ws://relay:8080";
 	const seed = JSON.parse(readFileSync(`${stateDir}/connections.json`, "utf8")) as Seed;
-	const store = openStore(`${stateDir}/ajo.db`, key);
+	const store = openStore(`${stateDir}/ajo.db`, secretKey);
+	const circle = store.circle() as { contribution: number } | undefined;
 	try {
 		if (store.round(id)?.phase === "collecting") console.error(`run-round: round ${id} was interrupted last time, resuming it from the stored invoices`);
 		return await runRound(id, {
@@ -197,25 +215,29 @@ async function runFromState(id: RoundId, stateDir: string) {
 			connect,
 			publish: (events) => publish(relayUrl, events),
 			circleKey,
-			contribution: sats(seed.contributionSat),
+			contribution: sats(circle?.contribution ?? seed.contributionSat),
 		});
 	} finally {
 		store.close();
 	}
 }
 
-/** The keys live in `.env`, which compose hands to the app container. The first host run creates them. Compose prefers a key exported in the shell. */
+/** The keys live in `.env`, which compose hands to the app container. The first host run takes the stack's pair, or creates one. Compose prefers a key exported in the shell. */
 function ensureKeys() {
 	const file = `${root}/.env`;
 	let text = existsSync(file) ? readFileSync(file, "utf8") : "";
-	const missing = KEYS.filter((k) => !new RegExp(`^${k}=[0-9a-f]{64}$`, "m").test(text));
+	const missing = KEYS.filter((k) => !keyIn(text, k));
 	if (missing.length > 0) {
-		text += `${text && !text.endsWith("\n") ? "\n" : ""}${missing.map((k) => `${k}=${randomBytes(32).toString("hex")}\n`).join("")}`;
+		let stack = "";
+		try {
+			stack = compose("run", "--rm", "--no-deps", "-T", "--entrypoint", "cat", "seed", `/state/${STATE_KEYS}`);
+		} catch {}
+		text += `${text && !text.endsWith("\n") ? "\n" : ""}${missing.map((k) => `${k}=${keyIn(stack, k) ?? randomBytes(32).toString("hex")}\n`).join("")}`;
 		writeFileSync(file, text, { mode: 0o600 });
 		chmodSync(file, 0o600);
 	}
 	const exported = process.env.AJO_SECRET_KEY;
-	return Buffer.from(exported && HEX32.test(exported) ? exported : (/^AJO_SECRET_KEY=([0-9a-f]{64})$/m.exec(text)?.[1] ?? ""), "hex");
+	return Buffer.from(exported && HEX32.test(exported) ? exported : (keyIn(text, "AJO_SECRET_KEY") ?? ""), "hex");
 }
 
 /** The container reports pseudonyms, so its log never holds a name. The host puts the names back for the caller. */

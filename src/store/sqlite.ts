@@ -4,7 +4,8 @@ import { DatabaseSync } from "node:sqlite";
 import type { Event } from "nostr-tools/pure";
 import { type MemberId, memberId, type PaymentHash, type Round, type RoundId } from "../round/types.ts";
 
-export type MemberSecrets = { name: string; pay: string; receive: string };
+/** `capSat` is the spending cap the pay connection reported when the member joined. */
+export type MemberSecrets = { name: string; pay: string; receive: string; capSat?: number };
 export type Member = MemberSecrets & { id: MemberId };
 
 /** AES-256-GCM. A stolen database file without `.env` yields no name and no NWC secret. */
@@ -42,6 +43,7 @@ export function openStore(file: string, key: Buffer) {
 		CREATE TABLE IF NOT EXISTS rounds (id INTEGER PRIMARY KEY, round TEXT NOT NULL);
 		CREATE TABLE IF NOT EXISTS invoices (payment_hash TEXT PRIMARY KEY, round INTEGER NOT NULL);
 		CREATE TABLE IF NOT EXISTS receipts (payment_hash TEXT PRIMARY KEY, event TEXT NOT NULL, published INTEGER NOT NULL DEFAULT 0);
+		CREATE TABLE IF NOT EXISTS circle (id INTEGER PRIMARY KEY CHECK (id = 1), sealed TEXT NOT NULL);
 	`);
 	const tx = (fn: () => void) => {
 		db.exec("BEGIN IMMEDIATE");
@@ -59,11 +61,21 @@ export function openStore(file: string, key: Buffer) {
 			const rows = db.prepare("SELECT id, sealed FROM members ORDER BY position").all() as { id: string; sealed: string }[];
 			return rows.map((r) => ({ id: memberId(r.id), ...(JSON.parse(open(key, r.sealed)) as MemberSecrets) }));
 		},
+		/** Appends after the members already stored, so payout order is join order. */
 		addMembers(list: MemberSecrets[]) {
 			const insert = db.prepare("INSERT INTO members (id, position, sealed) VALUES (?, ?, ?)");
 			tx(() => {
-				for (const [i, m] of list.entries()) insert.run(pseudonym(key, m.name), i, seal(key, JSON.stringify(m)));
+				const { n } = db.prepare("SELECT COUNT(*) AS n FROM members").get() as { n: number };
+				for (const [i, m] of list.entries()) insert.run(pseudonym(key, m.name), n + i, seal(key, JSON.stringify(m)));
 			});
+		},
+		circle(): unknown {
+			const row = db.prepare("SELECT sealed FROM circle WHERE id = 1").get() as { sealed: string } | undefined;
+			return row && JSON.parse(open(key, row.sealed));
+		},
+		/** The first circle wins. Returns false when one is already stored. */
+		createCircle(circle: object): boolean {
+			return db.prepare("INSERT OR IGNORE INTO circle (id, sealed) VALUES (1, ?)").run(seal(key, JSON.stringify(circle))).changes === 1;
 		},
 		round(id: RoundId): Round | undefined {
 			const row = db.prepare("SELECT round FROM rounds WHERE id = ?").get(id) as { round: string } | undefined;
