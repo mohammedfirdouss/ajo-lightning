@@ -25,4 +25,4 @@ Preconditions:
 ## Gotchas
 
 - `docker compose restart` also restarts the exited seed container. That is how the re-peer runs. A restart that skips the seed waits up to a minute for channels.
-- Hub tokens rotate on every seed run. Copy `connections.json` again after a restart. The NWC connections stay the same unless `CONTRIBUTION` changed, in which case the seed replaces each pay connection with one capped at the new budget.
+- Every seed run writes new read-only hub tokens to `connections.json`. The old tokens keep working until they expire about 30 days after issue, so a restart does not revoke a leaked token. Copy `connections.json` again after a restart. The NWC connections stay the same unless `CONTRIBUTION` changed, in which case the seed replaces each pay connection with one capped at the new budget.
