@@ -31,8 +31,8 @@ Each feature file has an H1, one paragraph on the user-visible behavior, and fou
 - [Restart warm](./warm-restart.md) covers `docker compose restart` and how fast channels and payments come back.
 - [Route a payment](./routed-payment.md) covers `scripts/route`: a two-hop payment, the pay budget refusal, and the receive-only refusal.
 - [Run the e2e checks](./e2e.md) covers `scripts/e2e` and its self-test.
-- [Start a circle](./web-circle.md) covers the circle page, the fake source, and the naira rate.
-- [Join a circle](./web-join.md) covers the join form and how it guards NWC links.
-- [Collect a round](./web-round.md) covers the round page, live rows, and the plain failure reasons.
+- [Start a circle](./web-circle.md) covers the circle page, the passcode, the real and the fake source, and the naira rate.
+- [Join a circle](./web-join.md) covers the join form, the link checks, the demo wallets, and the passcode limit.
+- [Collect a round](./web-round.md) covers the round page, live rows, the plain failure reasons, and the reminders on each unpaid row.
 - [Read the receipts](./web-receipts.md) covers the receipts page.
 - Reminders need no stack. `scripts/remind --lang fr --amount 4000 --due 2026-11-12 --member 3` prints one, and `npm test -- reminders` covers it. `ANTHROPIC_API_KEY` is optional, and without it the script falls back to a template. The Yoruba and Wolof templates await a native-speaker check.

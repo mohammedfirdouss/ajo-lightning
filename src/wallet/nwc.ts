@@ -73,3 +73,20 @@ export function connect(uri: string) {
 		close: () => client.close(),
 	};
 }
+
+export type LinkInfo = { methods: readonly string[]; budgetSat?: number };
+
+/** A wrong wallet key or secret only shows as silence, which the SDK gives up on after 10 seconds. */
+const INFO_REPLY_MS = 12_000;
+
+/** What a link may do, as its wallet reports it. Throws when the wallet does not answer. */
+export async function linkInfo(uri: string): Promise<LinkInfo> {
+	const client = new NWCClient({ nostrWalletConnectUrl: uri });
+	try {
+		const { methods } = await within(INFO_REPLY_MS, client.getInfo());
+		const budget = methods.includes("get_budget") ? await within(INFO_REPLY_MS, client.getBudget()) : {};
+		return { methods, budgetSat: "total_budget" in budget ? Math.floor(budget.total_budget / 1000) : undefined };
+	} finally {
+		client.close();
+	}
+}

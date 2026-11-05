@@ -16,6 +16,9 @@ const circle: Circle = {
 	name: "Market ajo",
 	contribution: sats(1000),
 	cadence: "monthly",
+	lang: "en",
+	start: "2026-11-05",
+	lock: { salt: "00", hash: "00" },
 	members: names.map((name, i) => ({ id: ids[i], name, capSat: sats(1010) })),
 	pubkey: "a".repeat(64),
 	relayUrl: "ws://127.0.0.1:7100",
@@ -85,8 +88,9 @@ test("the circle page lists members in payout order with each limit in sats and 
 });
 
 test("the join page asks for both links, hides them as typed, and shows the error it is given", async () => {
-	const page = String(await joinPage(circle, m, "The pay link and the receive link must be different links.", "Efe"));
-	assert.equal(page.match(/type="password"/g)?.length, 2);
+	const page = String(await joinPage(circle, m, { error: "The pay link and the receive link must be different links.", name: "Efe" }));
+	assert.equal(page.match(/type="password"/g)?.length, 3, "both links and the passcode are masked");
+	assert.doesNotMatch(page, /Demo wallet/, "no demo wallets outside the demo stack");
 	const text = await visible(page);
 	assert.match(text, /Pay link from your wallet/);
 	assert.match(text, /Receive link from your wallet/);
@@ -110,4 +114,25 @@ test("the receipts page lists each paid contribution with its payment hash and n
 	assert.match(text, /Chidi \(member3\) paid 1,000 sat 2{64}/);
 	assert.doesNotMatch(text, /Dayo/);
 	assert.match(text, new RegExp(`Circle key ${"a".repeat(64)}`));
+});
+
+test("each payer who has not paid gets a reminder with a copy button, and a paid payer gets none", async () => {
+	const waiting: Contribution = { state: "pending", payer: ids[2] };
+	const failed: Contribution = { state: "failed", payer: ids[3], invoice: invoice(3), tries: 2, reason: "QUOTA_EXCEEDED" };
+	const reminders = new Map([
+		[ids[2], "Hi Member 3, pay 1000 sats"],
+		[ids[3], "Hi Member 4, pay 1000 sats"],
+	]);
+	const page = roundPage(circle, round("partial", [paid(1), waiting, failed, paid(4)]), m, { reminders });
+	assert.match((await rowOf(page, "member3")).text, /Hi Member 3, pay 1000 sats Copy for WhatsApp/);
+	assert.match((await rowOf(page, "member4")).text, /Hi Member 4, pay 1000 sats Copy for WhatsApp/);
+	assert.doesNotMatch((await rowOf(page, "member2")).text, /Copy for WhatsApp/);
+	assert.match(String(await page), /data-copy="Hi Member 3, pay 1000 sats"/);
+});
+
+test("the join page offers the demo wallets in the same form when the stack has them", async () => {
+	const page = String(await joinPage(circle, m, { demo: 5 }));
+	assert.equal(page.match(/<form/g)?.length, 1);
+	assert.equal(page.match(/<option value="\d">Demo wallet \d<\/option>/g)?.length, 5);
+	assert.match(page, /name="use" value="demo" formnovalidate/);
 });

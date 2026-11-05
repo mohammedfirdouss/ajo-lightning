@@ -26,3 +26,14 @@ if ("BarcodeDetector" in window) {
 		input.after(button, file);
 	}
 }
+
+document.addEventListener("click", async (e) => {
+	const button = e.target.closest?.("button[data-copy]");
+	if (!button) return;
+	try {
+		await navigator.clipboard.writeText(button.dataset.copy);
+		button.textContent = "Copied, paste it in WhatsApp";
+	} catch {
+		button.textContent = "Copy did not work, select the text instead";
+	}
+});

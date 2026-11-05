@@ -1,9 +1,9 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { RoundReport } from "../../scripts/e2e.ts";
 import { reasonCopy } from "./copy.ts";
-import { apply, newRound, next } from "../round/round.ts";
+import { apply, next } from "../round/round.ts";
 import { type Command, type Invoice, type MemberId, memberId, type PaymentHash, type Preimage, type Round, type RoundEvent, type RoundId, sats } from "../round/types.ts";
-import type { Circle, RoundSource } from "./source.ts";
+import { type Circle, type RoundSource, scheduled } from "./source.ts";
 
 /**
  * A stand-in for the NWC runner, for tests and live lanes only. It drives the real round reducer against
@@ -21,12 +21,7 @@ export function fakeSource({ stepMs = 0, spentSat = {} }: FakeOptions = {}): Rou
 	const preimages = new Map<PaymentHash, Preimage>();
 	const settled = new Set<PaymentHash>();
 
-	const schedule = (n: RoundId): Round | undefined => {
-		const ms = circle?.members ?? [];
-		if (!circle || ms.length < 2 || n > ms.length) return undefined;
-		const payee = ms[(n - 1) % ms.length].id;
-		return newRound({ id: n, payee, payers: ms.map((x) => x.id).filter((x) => x !== payee), contribution: circle.contribution });
-	};
+	const schedule = (n: RoundId) => circle && scheduled(circle, n);
 
 	const feed = (round: Round, event: RoundEvent) => {
 		const out = apply(round, event);
@@ -79,8 +74,8 @@ export function fakeSource({ stepMs = 0, spentSat = {} }: FakeOptions = {}): Rou
 
 	return {
 		circle: async () => circle,
-		create: async ({ name, contribution, cadence }) => {
-			circle = { name, contribution, cadence, members: [], pubkey: hex(), relayUrl: "ws://127.0.0.1:7100" };
+		create: async (c) => {
+			circle = { ...c, members: [], pubkey: hex(), relayUrl: "ws://127.0.0.1:7100" };
 			return circle;
 		},
 		join: async ({ name }) => {
