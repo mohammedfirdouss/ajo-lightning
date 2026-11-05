@@ -8,6 +8,7 @@
 	"scripts": {
 		"lint": "biome lint",
 		"typecheck": "tsc",
+		"web": "node src/web/server.ts",
 		"test": "sh -c 'f=$(find . -path ./node_modules -prune -o -name \"*.test.ts\" -path \"*$1*\" -print); [ -n \"$f\" ] || { echo \"no test file matches $1\" >&2; exit 1; }; node --test $f' --"
 	},
 	"devDependencies": {
@@ -16,7 +17,10 @@
 		"typescript": "6.0.3"
 	},
 	"dependencies": {
+		"@anthropic-ai/sdk": "1.1.0",
 		"@getalby/sdk": "9.0.0",
+		"@hono/node-server": "2.1.4",
+		"hono": "4.13.13",
 		"nostr-tools": "2.25.5"
 	}
 }

@@ -5,7 +5,7 @@ description: Launch, check, drive, and tear down the Ajo on Lightning regtest st
 
 # Verify Ajo on Lightning
 
-The surface today is the CLI. `scripts/up`, `scripts/doctor`, `scripts/route`, and `scripts/e2e` drive a Docker Compose stack, and the hub HTTP API and the relay show its state. There is no web UI yet. Each feature has a recipe in [features/README.md](features/README.md).
+There are two surfaces. On the CLI, `scripts/up`, `scripts/doctor`, `scripts/route`, and `scripts/e2e` drive a Docker Compose stack, and the hub HTTP API and the relay show its state. The web pages in `src/web` start with `npm run web`. Until the NWC runner is wired in, they run only on the in-memory fake source, as [web-circle.md](features/web-circle.md) shows. Each feature has a recipe in [features/README.md](features/README.md).
 
 Requirements: Docker, `jq`, and Node 22.18 or newer on `PATH`. Run `npm ci` once in the worktree.
 
