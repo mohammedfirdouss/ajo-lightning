@@ -1,0 +1,9 @@
+[8s] stage 1: 6 hubs set up, started, unlocked
+[12s] stage 1b: node aliases set, hubs restarted so LDK can announce channels
+[15s] stage 2: 5 members funded on-chain with 500000 sat each in one sendmany
+stage 3: 5 funding txs in mempool, mining
+[28s] stage 3: 5 announced channels member->router active, chain height 124
+[28s] stage 3b: router forwarding fee set to 1 sat base, 0 ppm on all 5 channels
+[28s] stage 3c: every member's gossip graph has the router's 1 sat policy on all 5 channels
+[29s] stage 4: each member paid router 50000 sat so router can forward to it
+[30s] stage 5: wrote connections.json, 5 members x (pay budget 1010 sat/month, receive), cold setup done

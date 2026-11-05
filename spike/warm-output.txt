@@ -1,0 +1,4 @@
+[3s] stage 1: 6 hubs set up, started, unlocked
+[4s] warm: connections.json exists, all 5 member<->router channels active again
+{"fee":null,"preimage":"1e2de4d2fd8a17fd"}
+warm restart + two-hop payment settled at 4s

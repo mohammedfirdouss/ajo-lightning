@@ -1,0 +1,9 @@
+ajo-node-per-member-member3-1 42.5MiB / 7.75GiB
+ajo-node-per-member-member1-1 48.49MiB / 7.75GiB
+ajo-node-per-member-router-1 45.36MiB / 7.75GiB
+ajo-node-per-member-member4-1 46.95MiB / 7.75GiB
+ajo-node-per-member-member5-1 44.41MiB / 7.75GiB
+ajo-node-per-member-member2-1 42.74MiB / 7.75GiB
+ajo-node-per-member-bitcoind-1 44.28MiB / 7.75GiB
+ajo-node-per-member-relay-1 135MiB / 7.75GiB
+total 449.7 MiB (6 hubs 270.4 MiB, relay 135.0, bitcoind 44.3), sampled idle right after flow.mjs; an earlier sample 10 s after setup showed 96-106 MiB per hub (about 800 MiB total)

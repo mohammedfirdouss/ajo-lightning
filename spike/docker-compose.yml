@@ -1,4 +1,4 @@
-name: ajo-two-hub
+name: ajo-node-per-member
 
 x-hub: &hub
   image: ghcr.io/getalby/hub:v1.24.6
@@ -14,7 +14,8 @@ x-hub: &hub
     LDK_LISTENING_ADDRESSES: 0.0.0.0:9735
     RELAY: ws://relay:8080
     AUTO_UNLOCK_PASSWORD: spike-unlock-pw
-    LOG_LEVEL: "4"
+    LOG_LEVEL: ${LOG_LEVEL:-4}
+    LDK_LOG_LEVEL: ${LDK_LOG_LEVEL:-3}
 
 services:
   bitcoind:
@@ -34,26 +35,47 @@ services:
   relay:
     image: scsibug/nostr-rs-relay:0.9.0
     ports:
-      - "127.0.0.1:7000:8080"
+      - "127.0.0.1:7100:8080"
     volumes:
       - relay:/usr/src/app/db
 
-  hub-a:
+  router:
     <<: *hub
-    ports:
-      - "127.0.0.1:8081:8080"
-    volumes:
-      - hub-a:/data
-
-  hub-b:
+    environment: {<<: *hubenv, LDK_ANNOUNCEMENT_ADDRESSES: router:9735}
+    ports: ["127.0.0.1:8180:8080"]
+    volumes: [router:/data]
+  member1:
     <<: *hub
-    ports:
-      - "127.0.0.1:8082:8080"
-    volumes:
-      - hub-b:/data
+    environment: {<<: *hubenv, LDK_ANNOUNCEMENT_ADDRESSES: member1:9735}
+    ports: ["127.0.0.1:8181:8080"]
+    volumes: [member1:/data]
+  member2:
+    <<: *hub
+    environment: {<<: *hubenv, LDK_ANNOUNCEMENT_ADDRESSES: member2:9735}
+    ports: ["127.0.0.1:8182:8080"]
+    volumes: [member2:/data]
+  member3:
+    <<: *hub
+    environment: {<<: *hubenv, LDK_ANNOUNCEMENT_ADDRESSES: member3:9735}
+    ports: ["127.0.0.1:8183:8080"]
+    volumes: [member3:/data]
+  member4:
+    <<: *hub
+    environment: {<<: *hubenv, LDK_ANNOUNCEMENT_ADDRESSES: member4:9735}
+    ports: ["127.0.0.1:8184:8080"]
+    volumes: [member4:/data]
+  member5:
+    <<: *hub
+    environment: {<<: *hubenv, LDK_ANNOUNCEMENT_ADDRESSES: member5:9735}
+    ports: ["127.0.0.1:8185:8080"]
+    volumes: [member5:/data]
 
 volumes:
   bitcoind:
   relay:
-  hub-a:
-  hub-b:
+  router:
+  member1:
+  member2:
+  member3:
+  member4:
+  member5:

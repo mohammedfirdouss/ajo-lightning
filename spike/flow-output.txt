@@ -1,70 +1,85 @@
-hub A node 0303fb67af941a838c44876ef209ae8078135dd3df81ab69b6e27eb949f0cbbd2f
-hub B node 03596940abc0d191b72926a89d2f714ccd79d9eadf154a64b8ef0a3ff257d73151
+router   node 027b928e5affae98d3c296fed047a6f93d54f712851e9b688e69ee3812104ec8cb
+member1  node 03ae25b2ef4c57332013476abda9fd1053da0b798d17a06cdb62dccbf90ecf5bc0
+member2  node 025806d76f610cbe37c131547a3bf157bd96a8b2a211367580c4873fc4e40f4333
+member3  node 0242beb799d140b7448e19c75c7e256da048b5de5c9c5c5cf6c0fb1d12cb90d574
+member4  node 034a990d0ae076ba02a3175367eff8b0fe21fda99caeda4f4b761d0e7d3631e52f
+member5  node 025af4b41524902043df90537a796322a951f695e5eb6a010295e6c96a123a1410
 
 node state before round (hub API /api/channels + /api/balances):
-┌─────────┬───────────────────┬────────────────────┬──────────────────┬─────────────┐
-│ (index) │ channel_local_sat │ channel_remote_sat │ ln_spendable_sat │ onchain_sat │
-├─────────┼───────────────────┼────────────────────┼──────────────────┼─────────────┤
-│ hub A   │ 450000            │ 45000              │ 444340           │ 499844      │
-│ hub B   │ 50660             │ 444340             │ 45000            │ 0           │
-└─────────┴───────────────────┴────────────────────┴──────────────────┴─────────────┘
+┌─────────┬──────────┬────────┬───────────────────┬────────────────────┬──────────────────┬─────────────┐
+│ (index) │ channels │ active │ channel_local_sat │ channel_remote_sat │ ln_spendable_sat │ onchain_sat │
+├─────────┼──────────┼────────┼───────────────────┼────────────────────┼──────────────────┼─────────────┤
+│ router  │ 5        │ 5      │ 253300            │ 736700             │ 240000           │ 0           │
+│ member1 │ 1        │ 1      │ 150000            │ 48000              │ 147340           │ 299844      │
+│ member2 │ 1        │ 1      │ 150000            │ 48000              │ 147340           │ 299844      │
+│ member3 │ 1        │ 1      │ 150000            │ 48000              │ 147340           │ 299844      │
+│ member4 │ 1        │ 1      │ 150000            │ 48000              │ 147340           │ 299844      │
+│ member5 │ 1        │ 1      │ 150000            │ 48000              │ 147340           │ 299844      │
+└─────────┴──────────┴────────┴───────────────────┴────────────────────┴──────────────────┴─────────────┘
 
-connection balances before round (NWC get_balance):
-┌─────────┬─────┬─────────┬─────────────┐
-│ (index) │ hub │ pay_sat │ receive_sat │
-├─────────┼─────┼─────────┼─────────────┤
-│ member1 │ 'b' │ 3000    │ 0           │
-│ member2 │ 'a' │ 3000    │ 0           │
-│ member3 │ 'a' │ 3000    │ 0           │
-│ member4 │ 'a' │ 3000    │ 0           │
-│ member5 │ 'b' │ 3000    │ 0           │
-└─────────┴─────┴─────────┴─────────────┘
+connection balances before round (NWC get_balance, both connections see the one node balance):
+┌─────────┬─────────┬─────────────┐
+│ (index) │ pay_sat │ receive_sat │
+├─────────┼─────────┼─────────────┤
+│ member1 │ 147340  │ 147340      │
+│ member2 │ 147340  │ 147340      │
+│ member3 │ 147340  │ 147340      │
+│ member4 │ 147340  │ 147340      │
+│ member5 │ 147340  │ 147340      │
+└─────────┴─────────┴─────────────┘
 
-round: payee=member1 (hub b), contribution=1000 sat, pay budget=1010 sat/month
-member2 -> member1 [hub A -> hub B over channel]: preimage=c750ff7a1be87143..., fees_paid=0, payee state=settled, 185ms
-member3 -> member1 [hub A -> hub B over channel]: preimage=895373d60d13befa..., fees_paid=0, payee state=settled, 173ms
-member4 -> member1 [hub A -> hub B over channel]: preimage=344f7b8e568f63e0..., fees_paid=0, payee state=settled, 138ms
-member5 -> member1 [same hub (self-payment)]: preimage=2bb38af11886f5e2..., fees_paid=0, payee state=settled, 140ms
+round: payee=member1, contribution=1000 sat, pay budget=1010 sat/month, route payer -> router -> member1
+member2 -> member1: preimage=6676011b09ff0f0a..., fees_paid=1000 msat, payee state=settled, 247ms
+member3 -> member1: preimage=71097b97aee06271..., fees_paid=1000 msat, payee state=settled, 323ms
+member4 -> member1: preimage=332eb04fb0f198b4..., fees_paid=1000 msat, payee state=settled, 351ms
+member5 -> member1: preimage=684c1d5fff0346b5..., fees_paid=1000 msat, payee state=settled, 320ms
 
 node state after round (hub API /api/channels + /api/balances):
-┌─────────┬───────────────────┬────────────────────┬──────────────────┬─────────────┐
-│ (index) │ channel_local_sat │ channel_remote_sat │ ln_spendable_sat │ onchain_sat │
-├─────────┼───────────────────┼────────────────────┼──────────────────┼─────────────┤
-│ hub A   │ 447000            │ 48000              │ 441340           │ 499844      │
-│ hub B   │ 53660             │ 441340             │ 48000            │ 0           │
-└─────────┴───────────────────┴────────────────────┴──────────────────┴─────────────┘
+┌─────────┬──────────┬────────┬───────────────────┬────────────────────┬──────────────────┬─────────────┐
+│ (index) │ channels │ active │ channel_local_sat │ channel_remote_sat │ ln_spendable_sat │ onchain_sat │
+├─────────┼──────────┼────────┼───────────────────┼────────────────────┼──────────────────┼─────────────┤
+│ router  │ 5        │ 5      │ 253304            │ 736696             │ 240004           │ 0           │
+│ member1 │ 1        │ 1      │ 154000            │ 44000              │ 151340           │ 299844      │
+│ member2 │ 1        │ 1      │ 148999            │ 49001              │ 146339           │ 299844      │
+│ member3 │ 1        │ 1      │ 148999            │ 49001              │ 146339           │ 299844      │
+│ member4 │ 1        │ 1      │ 148999            │ 49001              │ 146339           │ 299844      │
+│ member5 │ 1        │ 1      │ 148999            │ 49001              │ 146339           │ 299844      │
+└─────────┴──────────┴────────┴───────────────────┴────────────────────┴──────────────────┴─────────────┘
 
-connection balances after round (NWC get_balance):
-┌─────────┬─────┬─────────┬─────────────┐
-│ (index) │ hub │ pay_sat │ receive_sat │
-├─────────┼─────┼─────────┼─────────────┤
-│ member1 │ 'b' │ 3000    │ 4000        │
-│ member2 │ 'a' │ 2000    │ 0           │
-│ member3 │ 'a' │ 2000    │ 0           │
-│ member4 │ 'a' │ 2000    │ 0           │
-│ member5 │ 'b' │ 2000    │ 0           │
-└─────────┴─────┴─────────┴─────────────┘
-hub A channel local delta = -3000 sat, hub B channel local delta = 3000 sat, cross-hub total = 3000 sat: OK
+connection balances after round (NWC get_balance, both connections see the one node balance):
+┌─────────┬─────────┬─────────────┐
+│ (index) │ pay_sat │ receive_sat │
+├─────────┼─────────┼─────────────┤
+│ member1 │ 151340  │ 151340      │
+│ member2 │ 146339  │ 146339      │
+│ member3 │ 146339  │ 146339      │
+│ member4 │ 146339  │ 146339      │
+│ member5 │ 146339  │ 146339      │
+└─────────┴─────────┴─────────────┘
 
-over-budget: member2 (hub a) pays a second contribution in the same budget period
-Failed to request pay_invoice Nip47WalletError: Your app does not have enough budget remaining to make this payment. Please review this app in the connections page of your Alby Hub.
-  code: 'QUOTA_EXCEEDED'
-}
+channel_local_sat deltas:
+  router   delta=     4 expected=     4 OK
+  member1  delta=  4000 expected=  4000 OK
+  member2  delta= -1001 expected= -1001 OK
+  member3  delta= -1001 expected= -1001 OK
+  member4  delta= -1001 expected= -1001 OK
+  member5  delta= -1001 expected= -1001 OK
+balance deltas: ALL OK (router routing fees total 4 sat)
+
+over-budget: member2 pays a second contribution in the same budget period (non-isolated connection)
 rejected: Nip47WalletError code=QUOTA_EXCEEDED message="Your app does not have enough budget remaining to make this payment. Please review this app in the connections page of your Alby Hub."
 
-fee reserve: hub A connection with budget exactly 1000 sat pays one 1000 sat cross-hub invoice
-Failed to request pay_invoice Nip47WalletError: Your app does not have enough budget remaining to make this payment. Please review this app in the connections page of your Alby Hub.
-  code: 'QUOTA_EXCEEDED'
-}
-rejected: Nip47WalletError code=QUOTA_EXCEEDED message="Your app does not have enough budget remaining to make this payment. Please review this app in the connections page of your Alby Hub."
-
-backing: hub A /api/transfers 10000000 sat from the main wallet into the probe connection (hub A holds 441340 sat spendable)
-accepted: probe get_balance now 10003000 sat
+scope: member1 receive connection tries to pay a 1000 sat invoice from member2
+rejected: Nip47WalletError code=RESTRICTED message="This app does not have the pay_invoice scope"
 
 node state final (hub API /api/channels + /api/balances):
-┌─────────┬───────────────────┬────────────────────┬──────────────────┬─────────────┐
-│ (index) │ channel_local_sat │ channel_remote_sat │ ln_spendable_sat │ onchain_sat │
-├─────────┼───────────────────┼────────────────────┼──────────────────┼─────────────┤
-│ hub A   │ 447000            │ 48000              │ 441340           │ 499844      │
-│ hub B   │ 53660             │ 441340             │ 48000            │ 0           │
-└─────────┴───────────────────┴────────────────────┴──────────────────┴─────────────┘
+┌─────────┬──────────┬────────┬───────────────────┬────────────────────┬──────────────────┬─────────────┐
+│ (index) │ channels │ active │ channel_local_sat │ channel_remote_sat │ ln_spendable_sat │ onchain_sat │
+├─────────┼──────────┼────────┼───────────────────┼────────────────────┼──────────────────┼─────────────┤
+│ router  │ 5        │ 5      │ 253304            │ 736696             │ 240004           │ 0           │
+│ member1 │ 1        │ 1      │ 154000            │ 44000              │ 151340           │ 299844      │
+│ member2 │ 1        │ 1      │ 148999            │ 49001              │ 146339           │ 299844      │
+│ member3 │ 1        │ 1      │ 148999            │ 49001              │ 146339           │ 299844      │
+│ member4 │ 1        │ 1      │ 148999            │ 49001              │ 146339           │ 299844      │
+│ member5 │ 1        │ 1      │ 148999            │ 49001              │ 146339           │ 299844      │
+└─────────┴──────────┴────────┴───────────────────┴────────────────────┴──────────────────┴─────────────┘
