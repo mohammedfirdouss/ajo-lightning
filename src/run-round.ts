@@ -231,6 +231,7 @@ async function main(arg: string | undefined) {
 	if (!stateDir) {
 		const key = ensureKeys();
 		const name = `ajo-round-${id}-${process.pid}`;
+		// Ctrl-C also reaches docker compose, which exits and leaves the container running the round, so stay to stop it.
 		process.on("SIGINT", () => {});
 		const r = spawnSync("docker", ["compose", "run", "--rm", "--no-deps", "-T", "--name", name, "app", "node", "src/run-round.ts", String(id)], {
 			cwd: root,

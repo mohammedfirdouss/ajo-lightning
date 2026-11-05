@@ -22,12 +22,11 @@ function open(key: Buffer, sealed: string) {
 	try {
 		return Buffer.concat([d.update(raw.subarray(28)), d.final()]).toString("utf8");
 	} catch {
-		throw new Error(KEY_MISMATCH);
+		throw new Error(
+			"this database was sealed with a different AJO_SECRET_KEY: restore the original .env, or run docker compose down -v to start fresh. An AJO_SECRET_KEY exported in your shell overrides the one in .env, so unset it too",
+		);
 	}
 }
-
-const KEY_MISMATCH =
-	"this database was sealed with a different AJO_SECRET_KEY: restore the original .env, or run docker compose down -v to start fresh. An AJO_SECRET_KEY exported in your shell overrides the one in .env, so unset it too";
 
 /** The id the core, the database, and receipts use. It is stable for a name and reveals nothing without the key. */
 export const pseudonym = (key: Buffer, name: string) => memberId(createHmac("sha256", key).update(`member:${name}`).digest("hex").slice(0, 16));

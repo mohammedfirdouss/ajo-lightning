@@ -4,7 +4,7 @@ import { test } from "node:test";
 import type { Event } from "nostr-tools/pure";
 import type { RoundReport } from "../../scripts/e2e.ts";
 import { type RoundStore, runRound } from "../../src/run-round.ts";
-import { type FailReason, type Invoice, memberId, paymentHash, type Preimage, type RoundId, roundId, sats } from "../../src/round/types.ts";
+import { type FailReason, type Invoice, memberId, paymentHash, type Preimage, preimage, roundId, sats } from "../../src/round/types.ts";
 import type { Member } from "../../src/store/sqlite.ts";
 import type { LookupState, Wallet } from "../../src/wallet/nwc.ts";
 
@@ -40,7 +40,7 @@ type Behavior = {
 	lookup?: (invoice: Invoice, expiredFromSec: number) => LookupState | undefined;
 };
 
-/** One Lightning network shared by every member's wallet, on a clock that only `sleep` and failed lookups move. */
+/** One Lightning network shared by every member's wallet, on a clock that only the runner's `sleep` moves. */
 function lightning(clock = { ms: 1_700_000_000_000 }) {
 	const preimages = new Map<string, Preimage>();
 	const settled = new Set<string>();
@@ -52,7 +52,7 @@ function lightning(clock = { ms: 1_700_000_000_000 }) {
 	};
 	const wallet = (uri: string): Wallet => ({
 		async makeInvoice(amount, _description, expirySec) {
-			const pre = randomBytes(32).toString("hex") as Preimage;
+			const pre = preimage(randomBytes(32).toString("hex"));
 			const hash = paymentHash(createHash("sha256").update(Buffer.from(pre, "hex")).digest("hex"));
 			preimages.set(hash, pre);
 			const fresh = { paymentHash: hash, bolt11: `lnbcrt-${hash}`, amount, expiresAt: Math.floor(clock.ms / 1000) + expirySec };
@@ -83,7 +83,7 @@ function lightning(clock = { ms: 1_700_000_000_000 }) {
 	let relayDown = false;
 	const run = (id: number, store: RoundStore, b: Behavior = {}) => {
 		behavior = b;
-		return runRound(roundId(id) as RoundId, {
+		return runRound(roundId(id), {
 			store,
 			members,
 			connect: wallet,
