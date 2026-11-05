@@ -1,0 +1,4 @@
+#!/bin/sh
+dir=$(dirname "$0")
+[ -d "$dir/../node_modules/nostr-tools" ] || { echo "nostr-tools is not installed, run npm ci first" >&2; exit 1; }
+exec node "$dir/e2e.ts" "$@"

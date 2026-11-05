@@ -1,0 +1,95 @@
+name: ajo
+
+x-unlock-password: &unlock-password ajo-regtest-only
+
+x-hub: &hub
+  image: ghcr.io/getalby/hub:v1.24.6
+  depends_on: [bitcoind, relay]
+  environment: &hubenv
+    WORK_DIR: /data/albyhub
+    NETWORK: regtest
+    LN_BACKEND_TYPE: LDK
+    LDK_BITCOIND_RPC_HOST: bitcoind
+    LDK_BITCOIND_RPC_PORT: "18443"
+    LDK_BITCOIND_RPC_USER: ajo
+    LDK_BITCOIND_RPC_PASSWORD: ajo
+    LDK_LISTENING_ADDRESSES: 0.0.0.0:9735
+    RELAY: ws://relay:8080
+    AUTO_UNLOCK_PASSWORD: *unlock-password
+    LOG_LEVEL: ${LOG_LEVEL:-4}
+    LDK_LOG_LEVEL: ${LDK_LOG_LEVEL:-3}
+
+services:
+  bitcoind:
+    image: bitcoin/bitcoin:28.1
+    command:
+      - -regtest=1
+      - -server=1
+      - -txindex=1
+      - -fallbackfee=0.0002
+      - -rpcuser=ajo
+      - -rpcpassword=ajo
+      - -rpcbind=0.0.0.0
+      - -rpcallowip=0.0.0.0/0
+    volumes: [bitcoind:/home/bitcoin/.bitcoin]
+
+  relay:
+    image: scsibug/nostr-rs-relay:0.9.0
+    platform: linux/amd64 # no arm64 build exists at any tag
+    init: true # the image runs the relay under sh -c, which ignores SIGTERM and stalls every stop for 10s
+    ports: ["127.0.0.1:${RELAY_PORT:-7100}:8080"]
+    volumes: [relay:/usr/src/app/db]
+
+  router:
+    <<: *hub
+    environment: {<<: *hubenv, LDK_ANNOUNCEMENT_ADDRESSES: router:9735}
+    ports: ["127.0.0.1:${HUB_PORT_PREFIX:-818}0:8080"]
+    volumes: [router:/data]
+  member1:
+    <<: *hub
+    environment: {<<: *hubenv, LDK_ANNOUNCEMENT_ADDRESSES: member1:9735}
+    ports: ["127.0.0.1:${HUB_PORT_PREFIX:-818}1:8080"]
+    volumes: [member1:/data]
+  member2:
+    <<: *hub
+    environment: {<<: *hubenv, LDK_ANNOUNCEMENT_ADDRESSES: member2:9735}
+    ports: ["127.0.0.1:${HUB_PORT_PREFIX:-818}2:8080"]
+    volumes: [member2:/data]
+  member3:
+    <<: *hub
+    environment: {<<: *hubenv, LDK_ANNOUNCEMENT_ADDRESSES: member3:9735}
+    ports: ["127.0.0.1:${HUB_PORT_PREFIX:-818}3:8080"]
+    volumes: [member3:/data]
+  member4:
+    <<: *hub
+    environment: {<<: *hubenv, LDK_ANNOUNCEMENT_ADDRESSES: member4:9735}
+    ports: ["127.0.0.1:${HUB_PORT_PREFIX:-818}4:8080"]
+    volumes: [member4:/data]
+  member5:
+    <<: *hub
+    environment: {<<: *hubenv, LDK_ANNOUNCEMENT_ADDRESSES: member5:9735}
+    ports: ["127.0.0.1:${HUB_PORT_PREFIX:-818}5:8080"]
+    volumes: [member5:/data]
+
+  seed:
+    build: ./seed
+    depends_on: [bitcoind, relay]
+    environment:
+      MEMBERS: ${MEMBERS:-5}
+      CONTRIBUTION: ${CONTRIBUTION:-1000}
+      UNLOCK_PASSWORD: *unlock-password
+      HOST_HUB_PORT_PREFIX: ${HUB_PORT_PREFIX:-818}
+      HOST_RELAY_PORT: ${RELAY_PORT:-7100}
+    tmpfs: [/tmp]
+    volumes: [state:/state, ./seed:/seed:ro]
+
+volumes:
+  bitcoind:
+  relay:
+  router:
+  member1:
+  member2:
+  member3:
+  member4:
+  member5:
+  state:
