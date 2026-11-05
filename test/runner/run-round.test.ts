@@ -209,3 +209,14 @@ test("a payment whose wallet never answers ends failed once the run's wait is ov
 		],
 	);
 });
+
+test("a payment not seen before the runner's expiry says a rerun can still pick it up, and a refusal does not", async () => {
+	const ln = lightning();
+	const report = await ln.run(1, fakeStore(), { pay: (uri) => (uri === "pay:bola" ? { error: "TIMEOUT" } : { error: "QUOTA_EXCEEDED" }) });
+	const error = (who: string) => {
+		const c = report.contributions.find((x) => x.member === who);
+		return c?.state === "failed" ? (c.error ?? "") : "";
+	};
+	assert.match(error("bola"), /no payment seen before the invoice expired; a rerun will pick it up if it still lands/i);
+	assert.doesNotMatch(error("chidi"), /rerun/);
+});

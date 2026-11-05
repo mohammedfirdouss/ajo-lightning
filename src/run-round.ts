@@ -26,11 +26,13 @@ const KEYS = ["AJO_SECRET_KEY", "AJO_CIRCLE_KEY"] as const;
 const root = fileURLToPath(new URL("..", import.meta.url));
 const realSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
+/** The payee's hub can still settle an HTLC after the runner's clock calls its invoice expired. Hold invoices will close that gap. */
+const UNSEEN = "No payment seen before the invoice expired; a rerun will pick it up if it still lands.";
 const PLAIN: Record<FailReason, string> = {
 	QUOTA_EXCEEDED: "This payment is over the monthly spending cap on this member's wallet connection.",
 	INSUFFICIENT_BALANCE: "This member's wallet did not have enough sats for the payment.",
-	PAYMENT_FAILED: "The payment did not reach the payee, and the invoice expired unpaid.",
-	TIMEOUT: "The wallet did not answer in time, and the invoice expired unpaid.",
+	PAYMENT_FAILED: `The wallet reported a failed payment. ${UNSEEN}`,
+	TIMEOUT: `The wallet did not answer in time. ${UNSEEN}`,
 };
 
 /**
@@ -237,7 +239,9 @@ async function main(arg: string | undefined) {
 			process.stdout.write(r.stdout ?? "");
 			return r.status ?? 1;
 		}
-		console.log(lines.slice(0, -1).concat(JSON.stringify(withNames(JSON.parse(lines.at(-1) ?? ""), key))).join("\n"));
+		const report = withNames(JSON.parse(lines.at(-1) ?? ""), key);
+		for (const c of report.contributions) if (c.state === "failed") console.error(`run-round: ${c.member} did not pay. ${c.error}`);
+		console.log(lines.slice(0, -1).concat(JSON.stringify(report)).join("\n"));
 		return 0;
 	}
 	console.log(JSON.stringify(await runFromState(id, stateDir)));
