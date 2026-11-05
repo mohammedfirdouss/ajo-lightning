@@ -18,3 +18,4 @@ Start the server per [web-circle.md](web-circle.md) and collect a round. Each `.
 ## Gotchas
 
 - The fake source makes up the circle key and publishes nothing to the relay.
+- The receipts page needs no passcode.
