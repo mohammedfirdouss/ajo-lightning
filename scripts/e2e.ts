@@ -3,28 +3,41 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { SimplePool } from "nostr-tools/pool";
 import { type Event, verifyEvent } from "nostr-tools/pure";
-import { expectDelta, expectSteady, loadStack, type Stack, sat, snapshot } from "./stack.ts";
+import { expectDelta, expectSteady, hubGet, loadStack, type Stack, sat, snapshot } from "./stack.ts";
 
 /**
  * The contract with the round runner. `node src/run-round.ts <round>` exits 0 once the round has run,
- * complete or partial, and prints this report as its last stdout line. The runner must finish within
- * RUNNER_TIMEOUT_MS, so it mints invoices with a short expiry and never waits out an unpaid one.
+ * complete or partial, and prints this report as its last stdout line.
+ *
+ * - The runner reads the stack from `connections.json` in the seed's `state` volume, most simply through
+ *   `loadStack()` in `scripts/stack.ts`. Each member has a `pay` and a `receive` NWC connection.
+ * - Each paid entry carries `paymentHash`, 64 lowercase hex: the payment hash of the invoice the payee's
+ *   receive connection minted. The payee's hub must hold that hash as a settled incoming payment of
+ *   exactly `contributionSat` sats.
+ * - For each paid entry the runner publishes one Nostr event to `relayUrl`, signed by the key whose hex
+ *   public key is `circlePubkey`, with the tags `["t", "ajo-receipt"]` and `["payment_hash", <paymentHash>]`.
+ * - A rerun of a round reports the same hashes and mints no new invoice.
+ * - The runner must finish within RUNNER_TIMEOUT_MS, so it mints invoices with an expiry well under that
+ *   and never waits out an unpaid one.
  */
 export type RoundReport = {
 	round: number;
 	payee: string;
-	/** The hex key that signs the round's receipts. */
 	circlePubkey: string;
 	state: "complete" | "partial";
-	contributions: { member: string; state: "paid" | "failed"; paymentHash?: string; error?: string }[];
+	contributions: (
+		| { member: string; state: "paid"; paymentHash: string }
+		| { member: string; state: "failed"; paymentHash?: string; error?: string }
+	)[];
 };
 
 const RUNNER = "src/run-round.ts";
 const RUNNER_TIMEOUT_MS = 120_000;
 const RECEIPT_TAG = "ajo-receipt";
+const HASH = /^[0-9a-f]{64}$/;
 const root = fileURLToPath(new URL("..", import.meta.url));
 
-function parseReport(round: number, line = ""): RoundReport {
+export function parseReport(round: number, line = ""): RoundReport {
 	let v: RoundReport;
 	try {
 		v = JSON.parse(line);
@@ -34,10 +47,12 @@ function parseReport(round: number, line = ""): RoundReport {
 	const ok =
 		v?.round === round &&
 		typeof v.payee === "string" &&
-		/^[0-9a-f]{64}$/.test(v.circlePubkey) &&
+		HASH.test(v.circlePubkey) &&
 		(v.state === "complete" || v.state === "partial") &&
 		Array.isArray(v.contributions) &&
-		v.contributions.every((c) => typeof c?.member === "string" && (c.state === "paid" || c.state === "failed"));
+		v.contributions.every(
+			(c) => typeof c?.member === "string" && ((c.state === "paid" && HASH.test(c.paymentHash)) || c.state === "failed"),
+		);
 	if (!ok) throw new Error(`${RUNNER} ${round} printed a report that does not match RoundReport: ${line.slice(0, 200)}`);
 	return v;
 }
@@ -72,8 +87,7 @@ export function checkReceipts(stack: Stack, report: RoundReport, events: Event[]
 		throw new Error(`round ${report.round} reports ${paid.length} paid contributions (${named.join(", ")}), expected one from each of ${payers.join(", ")}`);
 	}
 	for (const c of paid) {
-		const hash = c.paymentHash ?? "";
-		const matching = events.filter((e) => hash && (e.content.includes(hash) || JSON.stringify(e.tags).includes(hash)));
+		const matching = events.filter((e) => e.tags.some(([k, v]) => k === "payment_hash" && v === c.paymentHash));
 		if (matching.length !== 1) throw new Error(`${matching.length} receipts for ${c.member}'s payment, expected 1`);
 		const [receipt] = matching;
 		if (receipt.pubkey !== report.circlePubkey) {
@@ -95,11 +109,25 @@ export function checkRerun(first: RoundReport, rerun: RoundReport) {
 	}
 }
 
+type Transaction = { type: string; state: string; paymentHash: string; amountMsat: number };
+
+export async function checkSettled(stack: Stack, report: RoundReport) {
+	const payee = byName(stack, report.payee);
+	const want = stack.contributionSat * 1000;
+	for (const c of paidIn(report)) {
+		const tx = await hubGet<Transaction>(payee, `/api/transactions/${c.paymentHash}`).catch(() => undefined);
+		if (tx?.type !== "incoming" || tx.state !== "settled" || tx.paymentHash !== c.paymentHash || tx.amountMsat !== want) {
+			throw new Error(`${payee.name}'s hub has no settled incoming ${sat(want)} payment with ${c.member}'s hash ${c.paymentHash}`);
+		}
+	}
+}
+
 async function receiptsOnRelay(stack: Stack, report: RoundReport) {
+	await checkSettled(stack, report);
 	const pool = new SimplePool();
 	const events = await pool.querySync([stack.relayUrl], { "#t": [RECEIPT_TAG] }, { maxWait: 5_000 });
 	pool.close([stack.relayUrl]);
-	return `${checkReceipts(stack, report, events)} on ${stack.relayUrl}`;
+	return `every paid hash settled on ${report.payee}'s hub, and ${checkReceipts(stack, report, events)} on ${stack.relayUrl}`;
 }
 
 let round1: RoundReport;
