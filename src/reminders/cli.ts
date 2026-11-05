@@ -23,6 +23,7 @@ try {
 	const r = await reminder(input);
 	console.error(`source=${r.source} ms=${Math.round(performance.now() - start)}`);
 	console.log(r.text);
+	process.exit(0);
 } catch (e) {
 	console.error((e as Error).message);
 	process.exit(2);
