@@ -56,6 +56,33 @@ test("a payer past their limit shows over your limit and the round is partly pai
 	assert.match(page, /Try the unpaid members again/);
 });
 
+test("a round whose collect stopped on an error offers to try again instead of collecting forever", async () => {
+	const source = fakeSource({ stepMs: 1 });
+	let stuck = true;
+	let calls = 0;
+	const app = await circleOfFive({
+		...source,
+		round: async (n) => {
+			const r = await source.round(n);
+			return r && stuck ? { ...r, phase: "collecting" } : r;
+		},
+		collect: async (n) => {
+			if (calls++ === 0) throw new Error("no info event (kind 13194) returned from relay");
+			stuck = false;
+			return source.collect(n);
+		},
+	});
+	await app.request("/round/1/collect", collect());
+	const stalled = await until(async () => (await app.request("/round/1")).text(), /Try the unpaid members again/);
+	assert.match(stalled, /data-live="0"/);
+	assert.doesNotMatch(stalled, /Collecting/);
+	assert.match(stalled, /class="phase">Stopped/);
+	await app.request("/round/1/collect", collect());
+	const page = await until(async () => (await app.request("/round/1")).text(), /4,000 sat of 4,000 sat/);
+	assert.equal(page.match(/class="row paid"/g)?.length, 4);
+	assert.equal(calls, 2);
+});
+
 test("a bad link is refused with a plain message that never echoes what was pasted", async () => {
 	const app = await circleOfFive(fakeSource());
 	const secret = randomBytes(32).toString("hex");

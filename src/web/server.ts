@@ -151,7 +151,8 @@ export function createApp(source: RoundSource, nairaPerSat: number, { remind = r
 	app.get("/round/:n", async (c) => {
 		const found = await roundParam(c.req.param("n"));
 		if (!found) return c.notFound();
-		return c.html(roundPage(found.circle, found.round, m, { reminders: remindersFor(found.circle, found.round) }));
+		const stalled = found.round.phase === "collecting" && !collecting.has(found.round.id);
+		return c.html(roundPage(found.circle, found.round, m, { reminders: remindersFor(found.circle, found.round), stalled }));
 	});
 
 	app.post("/round/:n/collect", async (c) => {
