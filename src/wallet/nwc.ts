@@ -54,7 +54,7 @@ console.error = (...args: unknown[]) => {
 
 /**
  * Until a wallet has answered, every SDK request first fetches the wallet's info event to pick an encryption.
- * Concurrent fetches on one relay connection lose that event about one time in twenty, and the request is never sent.
+ * Concurrent fetches on one relay connection lose that event for about one request in ten, and that request is never sent.
  */
 export function firstAlone() {
 	let answered = false;
