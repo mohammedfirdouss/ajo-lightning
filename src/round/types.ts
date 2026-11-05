@@ -22,7 +22,7 @@ export function roundId(n: number): RoundId {
 	return n as RoundId;
 }
 
-const HEX32 = /^[0-9a-f]{64}$/;
+export const HEX32 = /^[0-9a-f]{64}$/;
 
 export function paymentHash(s: string): PaymentHash {
 	if (!HEX32.test(s)) throw new RangeError(`not a payment hash: ${JSON.stringify(s)}`);

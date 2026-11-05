@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { apply, newRound, next } from "../../src/round/round.ts";
-import { memberId, preimage, type RoundEvent, roundId, sats } from "../../src/round/types.ts";
+import { memberId, type Preimage, preimage, type RoundEvent, roundId, sats } from "../../src/round/types.ts";
 import { EXPIRES_AT, invoiceFor, type ModelAction, World } from "./world.ts";
 
 const m2 = memberId("member2");
@@ -183,17 +183,19 @@ test("NoPayerChargedTwice: a rerun after the payee wrongly reports a paid invoic
 });
 
 test("CompleteMeansEveryonePaid: a pay reply without a preimage that hashes to the invoice is not proof", () => {
-	const w = new World(["member2"], 4);
+	const w = new World(["member2"], 5);
 	w.Start();
 	w.MakeInvoice(m2);
 	const c = w.contribution(m2);
 	assert.equal(c.state, "invoiced");
+	const { preimage: real } = invoiceFor("member2-0");
 	// @ts-expect-error a success reply must carry a preimage
 	const bare: RoundEvent = { type: "payReplied", payer: m2 };
 	const lies: RoundEvent[] = [
 		bare,
 		{ type: "payReplied", payer: m2, preimage: invoiceFor("someone-else").preimage },
 		{ type: "payReplied", payer: m2, preimage: preimage("0".repeat(64)) },
+		{ type: "payReplied", payer: m2, preimage: `${real}zz` as Preimage },
 	];
 	lies.forEach((lie, i) => {
 		w.SendPay(m2);
@@ -206,7 +208,6 @@ test("CompleteMeansEveryonePaid: a pay reply without a preimage that hashes to t
 	w.WalletSends(m2);
 	w.PaymentArrives(m2);
 	w.RecordReply(m2);
-	const { preimage: real } = invoiceFor("member2-0");
 	assert.deepEqual(w.contribution(m2), { state: "paid", payer: m2, invoice: c.invoice, proof: { by: "preimage", preimage: real } });
 	assert.equal(w.EndRound().ok, true);
 	assert.equal(w.round.phase, "complete");

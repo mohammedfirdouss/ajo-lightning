@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { Applied, Command, Contribution, Failed, Invoice, MemberId, Paid, Round, RoundEvent, RoundId, Sats } from "./types.ts";
+import { type Applied, type Command, type Contribution, type Failed, HEX32, type Invoice, type MemberId, type Paid, type Round, type RoundEvent, type RoundId, type Sats } from "./types.ts";
 
 export type RoundSetup = { id: RoundId; payee: MemberId; payers: readonly MemberId[]; contribution: Sats; maxTries?: number };
 
@@ -12,8 +12,11 @@ export function newRound({ id, payee, payers, contribution, maxTries = 2 }: Roun
 	return { id, payee, contribution, maxTries, reruns: 0, phase: "scheduled", contributions };
 }
 
+/** `Buffer.from` drops hex from the first bad pair on, so a preimage with junk after it would still hash right. */
 const proves = (invoice: Invoice, preimage: unknown) =>
-	typeof preimage === "string" && createHash("sha256").update(Buffer.from(preimage, "hex")).digest("hex") === invoice.paymentHash;
+	typeof preimage === "string" &&
+	HEX32.test(preimage) &&
+	createHash("sha256").update(Buffer.from(preimage, "hex")).digest("hex") === invoice.paymentHash;
 
 const usedHashes = (round: Round) => round.contributions.flatMap((c) => ("invoice" in c ? [c.invoice.paymentHash] : []));
 
