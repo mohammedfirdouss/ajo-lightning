@@ -1,0 +1,113 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import type { Contribution, Invoice, Round } from "../../src/round/types.ts";
+import { memberId, paymentHash, preimage, roundId, sats } from "../../src/round/types.ts";
+import { money } from "../../src/web/copy.ts";
+import { circlePage, createPage } from "../../src/web/pages/circle.ts";
+import { joinPage } from "../../src/web/pages/join.ts";
+import { receiptsPage } from "../../src/web/pages/receipts.ts";
+import { roundPage } from "../../src/web/pages/round.ts";
+import type { Circle } from "../../src/web/source.ts";
+
+const m = money(1.5);
+const names = ["Ada", "Bola", "Chidi", "Dayo", "Efe"];
+const ids = names.map((_, i) => memberId(`member${i + 1}`));
+const circle: Circle = {
+	name: "Market ajo",
+	contribution: sats(1000),
+	cadence: "monthly",
+	members: names.map((name, i) => ({ id: ids[i], name, capSat: sats(1010) })),
+	pubkey: "a".repeat(64),
+	relayUrl: "ws://127.0.0.1:7100",
+};
+const invoice = (i: number): Invoice => ({ paymentHash: paymentHash(String(i).repeat(64)), bolt11: "lnbcrt", amount: sats(1000), expiresAt: 0 });
+const paid = (i: number): Contribution => ({ state: "paid", payer: ids[i], invoice: invoice(i), proof: { by: "preimage", preimage: preimage("f".repeat(64)) } });
+const round = (phase: Round["phase"], contributions: Contribution[]) =>
+	({ id: roundId(1), payee: ids[0], contribution: sats(1000), maxTries: 2, reruns: 0, phase, contributions }) as Round;
+
+const visible = async (page: unknown) =>
+	String(await page)
+		.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/g, "")
+		.replace(/<[^>]+>/g, " ")
+		.replace(/&#39;/g, "'")
+		.replace(/\s+/g, " ");
+const rowOf = async (page: unknown, member: string) => {
+	const li = String(await page).match(new RegExp(`<li class="row (\\w+)" data-member="${member}">([\\s\\S]*?)</li>`));
+	assert.ok(li, `no row for ${member}`);
+	return { tone: li[1], text: await visible(li[2]) };
+};
+
+test("the round page says paid, waiting, or not paid with a plain reason for each payer", async () => {
+	const page = roundPage(
+		circle,
+		round("collecting", [
+			paid(1),
+			{ state: "invoiced", payer: ids[2], invoice: invoice(2), step: "lookup", tries: 1, lastErr: "TIMEOUT" },
+			{ state: "failed", payer: ids[3], invoice: invoice(3), tries: 2, reason: "QUOTA_EXCEEDED" },
+			{ state: "failed", payer: ids[4], invoice: invoice(4), tries: 2, reason: "INSUFFICIENT_BALANCE" },
+		]),
+		m,
+	);
+	assert.deepEqual(await rowOf(page, "member2"), { tone: "paid", text: " Bola Paid " });
+	assert.deepEqual(await rowOf(page, "member3"), { tone: "waiting", text: " Chidi Waiting , trying again, last try was the wallet did not answer " });
+	assert.deepEqual(await rowOf(page, "member4"), { tone: "notpaid", text: " Dayo Not paid , over your limit " });
+	assert.deepEqual(await rowOf(page, "member5"), { tone: "notpaid", text: " Efe Not paid , not enough money " });
+	const text = await visible(page);
+	assert.match(text, /Round 1 pays Ada/);
+	assert.match(text, /1,000 sat of 4,000 sat/);
+	assert.match(text, /₦1,500 of ₦6,000/);
+	assert.match(text, /fixed demo rate/);
+	assert.match(text, /Collecting…/);
+	assert.match(String(await page), /data-live="1"/);
+});
+
+test("the round page offers to collect a new round, to retry a partial one, and nothing for a complete one", async () => {
+	const pending = ids.slice(1).map((payer) => ({ state: "pending" as const, payer }));
+	assert.match(await visible(roundPage(circle, round("scheduled", pending), m)), /Collect this round/);
+	const partial = roundPage(circle, round("partial", [paid(1), paid(2), paid(3), { state: "failed", payer: ids[4], invoice: invoice(4), tries: 2, reason: "QUOTA_EXCEEDED" }]), m);
+	assert.match(await visible(partial), /Partly paid .* 3 paid · 0 waiting · 1 not paid/);
+	assert.match(await visible(partial), /Try the unpaid members again/);
+	const complete = await visible(roundPage(circle, round("complete", [paid(1), paid(2), paid(3), paid(4)]), m));
+	assert.match(complete, /Complete · 4 paid/);
+	assert.doesNotMatch(complete, /Collect this round|Try the unpaid/);
+	assert.match(complete, /See the receipts/);
+});
+
+test("the circle page lists members in payout order with each limit in sats and naira", async () => {
+	const pending = ids.slice(1).map((payer) => ({ state: "pending" as const, payer }));
+	const text = await visible(circlePage(circle, [round("scheduled", pending)], m));
+	const order = names.map((n) => text.indexOf(`${n} Limit 1,010 sat (₦1,515) a month`));
+	assert.ok(order.every((at, i) => at > 0 && (i === 0 || at > order[i - 1])), text);
+	assert.match(text, /Ada Limit .* gets paid in round 1/);
+	assert.match(text, /Join this circle/);
+	assert.match(text, /Round 1 pays Ada Not started/);
+	assert.match(await visible(createPage()), /Start the circle/);
+});
+
+test("the join page asks for both links, hides them as typed, and shows the error it is given", async () => {
+	const page = String(await joinPage(circle, m, "The pay link and the receive link must be different links.", "Efe"));
+	assert.equal(page.match(/type="password"/g)?.length, 2);
+	const text = await visible(page);
+	assert.match(text, /Pay link from your wallet/);
+	assert.match(text, /Receive link from your wallet/);
+	assert.match(text, /must be different links/);
+	assert.match(page, /value="Efe"/);
+});
+
+test("the join page asks for a pay limit that renews as often as the circle pays", async () => {
+	for (const cadence of ["weekly", "monthly"] as const) {
+		const text = await visible(joinPage({ ...circle, cadence }, m));
+		assert.match(text, new RegExp(`Make it with a ${cadence} limit`));
+		assert.doesNotMatch(text, new RegExp(`${cadence === "weekly" ? "monthly" : "weekly"} limit`));
+	}
+});
+
+test("the receipts page lists each paid contribution with its payment hash and no failed one", async () => {
+	const r = round("partial", [paid(1), paid(2), { state: "failed", payer: ids[3], invoice: invoice(3), tries: 2, reason: "QUOTA_EXCEEDED" }]);
+	const text = await visible(receiptsPage(circle, [r], m));
+	assert.match(text, /Round 1, paid to Ada/);
+	assert.match(text, /Bola \(member2\) paid 1,000 sat 1{64}/);
+	assert.match(text, /Chidi \(member3\) paid 1,000 sat 2{64}/);
+	assert.doesNotMatch(text, /Dayo/);
+	assert.match(text, new RegExp(`Circle key ${"a".repeat(64)}`));
+});
