@@ -6,8 +6,9 @@ import { circlePubkey, publish, receiptEvent } from "./receipts/nostr.ts";
 import { apply, newRound, next } from "./round/round.ts";
 import type { RoundReport } from "../scripts/e2e.ts";
 import { loadStack } from "../scripts/stack.ts";
-import { type Command, type Contribution, type FailReason, HEX32, type Invoice, type MemberId, type Round, type RoundEvent, type RoundId, roundId, sats } from "./round/types.ts";
-import { openStore, pseudonym, type Store } from "./store/sqlite.ts";
+import type { Event } from "nostr-tools/pure";
+import { type Command, type Contribution, type FailReason, HEX32, type Invoice, type MemberId, type Round, type RoundEvent, type RoundId, roundId, type Sats, sats } from "./round/types.ts";
+import { type Member, openStore, pseudonym, type Store } from "./store/sqlite.ts";
 import { connect, type LookupState, type Wallet } from "./wallet/nwc.ts";
 
 /** A partial round may run again this many times. Each rerun only looks up stored invoices, so more cannot help. */
@@ -21,7 +22,7 @@ const RUN_BUDGET_MS = 100_000;
 const KEYS = ["AJO_SECRET_KEY", "AJO_CIRCLE_KEY"] as const;
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const realSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 const PLAIN: Record<FailReason, string> = {
 	QUOTA_EXCEEDED: "This payment is over the monthly spending cap on this member's wallet connection.",
@@ -63,14 +64,20 @@ function resume(round: Round): Round {
 	return a.round;
 }
 
-async function runRound(id: RoundId, stateDir: string): Promise<RoundReport> {
-	const deadline = Date.now() + RUN_BUDGET_MS;
-	const key = hexKey("AJO_SECRET_KEY");
-	const circleKey = hexKey("AJO_CIRCLE_KEY");
-	const relayUrl = process.env.AJO_RELAY_URL ?? "ws://relay:8080";
-	const store = openStore(`${stateDir}/ajo.db`, key);
-	const seed = JSON.parse(readFileSync(`${stateDir}/connections.json`, "utf8")) as Seed;
-	const members = circleMembers(store, seed);
+export type RoundStore = Omit<Store, "members" | "addMembers" | "close">;
+export type RunEnv = {
+	store: RoundStore;
+	members: readonly Member[];
+	connect: (uri: string) => Wallet;
+	publish: (events: Event[]) => Promise<void>;
+	circleKey: Uint8Array;
+	contribution: Sats;
+	now?: () => number;
+	sleep?: (ms: number) => Promise<void>;
+};
+
+export async function runRound(id: RoundId, { store, members, connect, publish, circleKey, contribution, now = Date.now, sleep = realSleep }: RunEnv): Promise<RoundReport> {
+	const deadline = now() + RUN_BUDGET_MS;
 	const byId = new Map(members.map((m) => [m.id, m]));
 	const member = (id: MemberId) => {
 		const m = byId.get(id);
@@ -81,9 +88,7 @@ async function runRound(id: RoundId, stateDir: string): Promise<RoundReport> {
 
 	const stored = store.round(id);
 	const inFlight = new Set(stored?.contributions.filter(mayBeInFlight).map((c) => c.payer));
-	let round = resume(
-		stored ?? newRound({ id, payee: payee.id, payers: members.filter((m) => m !== payee).map((m) => m.id), contribution: sats(seed.contributionSat) }),
-	);
+	let round = resume(stored ?? newRound({ id, payee: payee.id, payers: members.filter((m) => m !== payee).map((m) => m.id), contribution }));
 	store.saveRound(round);
 
 	const feed = (event: RoundEvent, newInvoice?: Invoice) => {
@@ -103,12 +108,12 @@ async function runRound(id: RoundId, stateDir: string): Promise<RoundReport> {
 
 	async function settledOrExpired(payer: MemberId, invoice: Invoice, waitForExpiry: boolean): Promise<LookupState> {
 		const expiredFromSec = inFlight.has(payer) ? deadline / 1000 : invoice.expiresAt + EXPIRY_GRACE_SEC;
-		const until = waitForExpiry ? (expiredFromSec + 1) * 1000 : Date.now() + LOOKUP_POLL_MS;
+		const until = waitForExpiry ? (expiredFromSec + 1) * 1000 : now() + LOOKUP_POLL_MS;
 		for (let delay = 500; ; delay = Math.min(delay * 2, 4_000)) {
 			const state = await receive().lookup(invoice, expiredFromSec);
 			if (state === "settled" || state === "expired") return state;
-			if (Date.now() >= until) return "open";
-			await sleep(Math.min(delay, Math.max(until - Date.now(), 0)));
+			if (now() >= until) return "open";
+			await sleep(Math.min(delay, Math.max(until - now(), 0)));
 		}
 	}
 
@@ -134,7 +139,7 @@ async function runRound(id: RoundId, stateDir: string): Promise<RoundReport> {
 		for (;;) {
 			const cmd = next(round).find((c) => c.type !== "close" && c.payer === payer);
 			if (!cmd || cmd.type === "close") return;
-			if (Date.now() > deadline) throw new Error(`round ${id} is still collecting after ${RUN_BUDGET_MS / 1000}s, run it again to resume`);
+			if (now() > deadline) throw new Error(`round ${id} is still collecting after ${RUN_BUDGET_MS / 1000}s, run it again to resume`);
 			await run(cmd);
 		}
 	}
@@ -146,12 +151,12 @@ async function runRound(id: RoundId, stateDir: string): Promise<RoundReport> {
 
 		for (const c of round.contributions) {
 			if (c.state === "paid" && !store.hasReceipt(c.invoice.paymentHash)) {
-				const event = receiptEvent(circleKey, { round: id, payer: c.payer, amount: c.invoice.amount, paymentHash: c.invoice.paymentHash }, Math.floor(Date.now() / 1000));
+				const event = receiptEvent(circleKey, { round: id, payer: c.payer, amount: c.invoice.amount, paymentHash: c.invoice.paymentHash }, Math.floor(now() / 1000));
 				store.addReceipt(c.invoice.paymentHash, event);
 			}
 		}
 		const unpublished = store.unpublishedReceipts();
-		await publish(relayUrl, unpublished);
+		await publish(unpublished);
 		store.markPublished(unpublished);
 
 		return {
@@ -167,6 +172,25 @@ async function runRound(id: RoundId, stateDir: string): Promise<RoundReport> {
 		};
 	} finally {
 		for (const w of wallets.values()) w.close();
+	}
+}
+
+async function runFromState(id: RoundId, stateDir: string) {
+	const key = hexKey("AJO_SECRET_KEY");
+	const circleKey = hexKey("AJO_CIRCLE_KEY");
+	const relayUrl = process.env.AJO_RELAY_URL ?? "ws://relay:8080";
+	const seed = JSON.parse(readFileSync(`${stateDir}/connections.json`, "utf8")) as Seed;
+	const store = openStore(`${stateDir}/ajo.db`, key);
+	try {
+		return await runRound(id, {
+			store,
+			members: circleMembers(store, seed),
+			connect,
+			publish: (events) => publish(relayUrl, events),
+			circleKey,
+			contribution: sats(seed.contributionSat),
+		});
+	} finally {
 		store.close();
 	}
 }
@@ -209,7 +233,7 @@ async function main(arg: string | undefined) {
 		console.log(lines.slice(0, -1).concat(JSON.stringify(withNames(JSON.parse(lines.at(-1) ?? ""), key))).join("\n"));
 		return 0;
 	}
-	console.log(JSON.stringify(await runRound(id, stateDir)));
+	console.log(JSON.stringify(await runFromState(id, stateDir)));
 	return 0;
 }
 
