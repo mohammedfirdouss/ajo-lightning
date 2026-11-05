@@ -117,8 +117,9 @@ export async function runRound(id: RoundId, { store, members, connect, publish, 
 			if (state === "settled" || state === "expired") return state;
 			const gap = lookupGap.get(payer) ?? LOOKUP_GAP_MS.min;
 			lookupGap.set(payer, Math.min(gap * 2, LOOKUP_GAP_MS.max));
-			await sleep(gap);
-			if (now() >= until) return "open";
+			const left = until - now();
+			await sleep(left > 0 ? Math.max(Math.min(gap, left), LOOKUP_GAP_MS.min) : gap);
+			if (left <= 0) return "open";
 		}
 	}
 

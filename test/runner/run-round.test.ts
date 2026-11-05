@@ -196,3 +196,16 @@ test("lookups that fail at once stay at least 500 ms apart after the invoice's e
 	const chidi = ln.calls.lookups.filter((h) => h === chidisHash()).length;
 	assert.ok(chidi <= (clock.ms - start) / 500, `${chidi} lookups in ${clock.ms - start} ms`);
 });
+
+test("a payment whose wallet never answers ends failed once the run's wait is over", async () => {
+	const ln = lightning();
+	const report = await ln.run(1, fakeStore(), { pay: (uri) => (uri === "pay:bola" ? { error: "TIMEOUT" } : "landed") });
+	assert.equal(report.state, "partial");
+	assert.deepEqual(
+		report.contributions.map((c) => [c.member, c.state]),
+		[
+			["bola", "failed"],
+			["chidi", "paid"],
+		],
+	);
+});
