@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -19,4 +19,13 @@ test("the database file holds no member name and no NWC secret in plain text", (
 	assert.ok(!bytes.includes("Adaeze"), "member name in the database file");
 	assert.ok(!bytes.includes("nostr+walletconnect://"), "NWC secret in the database file");
 	assert.throws(() => openStore(join(dir, "ajo.db"), randomBytes(32)).members(), /unable to authenticate|Unsupported state/);
+});
+
+test("only the owner can read or write the database file", (t) => {
+	const dir = mkdtempSync(join(tmpdir(), "ajo-store-"));
+	t.after(() => rmSync(dir, { recursive: true }));
+	const store = openStore(join(dir, "ajo.db"), randomBytes(32));
+	store.addMembers([{ name: "Adaeze Okafor", pay: "p", receive: "r" }]);
+	for (const f of ["ajo.db", "ajo.db-wal"]) assert.equal(statSync(join(dir, f)).mode & 0o777, 0o600, f);
+	store.close();
 });

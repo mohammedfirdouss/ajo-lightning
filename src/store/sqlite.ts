@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, createHmac, randomBytes } from "node:crypto";
+import { chmodSync, closeSync, openSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import type { Event } from "nostr-tools/pure";
 import { type MemberId, memberId, type PaymentHash, type Round, type RoundId } from "../round/types.ts";
@@ -21,11 +22,14 @@ function open(key: Buffer, sealed: string) {
 	return Buffer.concat([d.update(raw.subarray(28)), d.final()]).toString("utf8");
 }
 
+
 /** The id the core, the database, and receipts use. It is stable for a name and reveals nothing without the key. */
 export const pseudonym = (key: Buffer, name: string) => memberId(createHmac("sha256", key).update(`member:${name}`).digest("hex").slice(0, 16));
 
 export function openStore(file: string, key: Buffer) {
 	if (key.length !== 32) throw new RangeError("the secret key must be 32 bytes");
+	closeSync(openSync(file, "a", 0o600));
+	chmodSync(file, 0o600);
 	const db = new DatabaseSync(file);
 	db.exec(`
 		PRAGMA journal_mode = WAL;
