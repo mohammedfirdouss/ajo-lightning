@@ -36,9 +36,12 @@ export const LANGUAGES: Record<Lang, Language> = {
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+const isCalendarDate = (d: string) => DATE.test(d) && !Number.isNaN(Date.parse(d)) && new Date(d).toISOString().slice(0, 10) === d;
+
 export function reminderInput(raw: { lang: string; amount: Sats; due: string; member: number }): ReminderInput {
 	if (!Object.hasOwn(LANGUAGES, raw.lang)) throw new RangeError(`not a language: ${JSON.stringify(raw.lang)}, use ${Object.keys(LANGUAGES).join(", ")}`);
-	if (!DATE.test(raw.due) || Number.isNaN(Date.parse(raw.due))) throw new RangeError(`not a YYYY-MM-DD date: ${JSON.stringify(raw.due)}`);
+	if (raw.amount < 1) throw new RangeError(`not a positive amount of sats: ${raw.amount}`);
+	if (!isCalendarDate(raw.due)) throw new RangeError(`not a real YYYY-MM-DD date: ${JSON.stringify(raw.due)}`);
 	if (!Number.isSafeInteger(raw.member) || raw.member < 1) throw new RangeError(`not a member seat: ${raw.member}`);
 	return { lang: raw.lang as Lang, amount: raw.amount, due: raw.due, member: raw.member };
 }

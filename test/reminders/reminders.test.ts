@@ -81,4 +81,9 @@ test("round state outside the domain is rejected before any reminder", () => {
 	assert.throws(() => reminderInput({ lang: "de", amount: sats(1), due: "2026-11-12", member: 1 }), /not a language/);
 	assert.throws(() => reminderInput({ lang: "en", amount: sats(1), due: "12/11/2026", member: 1 }), /YYYY-MM-DD/);
 	assert.throws(() => reminderInput({ lang: "en", amount: sats(1), due: "2026-11-12", member: 0 }), /member seat/);
+	assert.throws(() => reminderInput({ lang: "en", amount: sats(0), due: "2026-11-12", member: 1 }), /positive amount/);
+	for (const due of ["2026-02-31", "2026-04-31", "2026-02-29", "2026-13-01"]) {
+		assert.throws(() => reminderInput({ lang: "en", amount: sats(1), due, member: 1 }), /YYYY-MM-DD/, due);
+	}
+	assert.equal(reminderInput({ lang: "en", amount: sats(1), due: "2028-02-29", member: 1 }).due, "2028-02-29");
 });
