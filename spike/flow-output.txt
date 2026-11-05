@@ -1,56 +1,70 @@
+hub A node 0303fb67af941a838c44876ef209ae8078135dd3df81ab69b6e27eb949f0cbbd2f
+hub B node 03596940abc0d191b72926a89d2f714ccd79d9eadf154a64b8ef0a3ff257d73151
 
-balances before round (via NWC get_balance):
-┌─────────┬─────────┬─────────────┐
-│ (index) │ pay_sat │ receive_sat │
-├─────────┼─────────┼─────────────┤
-│ member1 │ 3000    │ 0           │
-│ member2 │ 3000    │ 0           │
-│ member3 │ 3000    │ 0           │
-│ member4 │ 3000    │ 0           │
-│ member5 │ 3000    │ 0           │
-└─────────┴─────────┴─────────────┘
+node state before round (hub API /api/channels + /api/balances):
+┌─────────┬───────────────────┬────────────────────┬──────────────────┬─────────────┐
+│ (index) │ channel_local_sat │ channel_remote_sat │ ln_spendable_sat │ onchain_sat │
+├─────────┼───────────────────┼────────────────────┼──────────────────┼─────────────┤
+│ hub A   │ 450000            │ 45000              │ 444340           │ 499844      │
+│ hub B   │ 50660             │ 444340             │ 45000            │ 0           │
+└─────────┴───────────────────┴────────────────────┴──────────────────┴─────────────┘
 
-round: payee=member1, contribution=1000 sat
-member2 -> member1: paid, preimage=f81e993363831703..., fees_paid=0, payee lookup state=settled, 117ms
-member3 -> member1: paid, preimage=c8ae17863dfe8e6d..., fees_paid=0, payee lookup state=settled, 142ms
-member4 -> member1: paid, preimage=251343110abc6b29..., fees_paid=0, payee lookup state=settled, 148ms
-member5 -> member1: paid, preimage=f76f00ed0a484721..., fees_paid=0, payee lookup state=settled, 142ms
+connection balances before round (NWC get_balance):
+┌─────────┬─────┬─────────┬─────────────┐
+│ (index) │ hub │ pay_sat │ receive_sat │
+├─────────┼─────┼─────────┼─────────────┤
+│ member1 │ 'b' │ 3000    │ 0           │
+│ member2 │ 'a' │ 3000    │ 0           │
+│ member3 │ 'a' │ 3000    │ 0           │
+│ member4 │ 'a' │ 3000    │ 0           │
+│ member5 │ 'b' │ 3000    │ 0           │
+└─────────┴─────┴─────────┴─────────────┘
 
-balances after round (via NWC get_balance):
-┌─────────┬─────────┬─────────────┐
-│ (index) │ pay_sat │ receive_sat │
-├─────────┼─────────┼─────────────┤
-│ member1 │ 3000    │ 4000        │
-│ member2 │ 2000    │ 0           │
-│ member3 │ 2000    │ 0           │
-│ member4 │ 2000    │ 0           │
-│ member5 │ 2000    │ 0           │
-└─────────┴─────────┴─────────────┘
-payee receive delta = 4000 sat, expected 4000: OK
+round: payee=member1 (hub b), contribution=1000 sat, pay budget=1010 sat/month
+member2 -> member1 [hub A -> hub B over channel]: preimage=c750ff7a1be87143..., fees_paid=0, payee state=settled, 185ms
+member3 -> member1 [hub A -> hub B over channel]: preimage=895373d60d13befa..., fees_paid=0, payee state=settled, 173ms
+member4 -> member1 [hub A -> hub B over channel]: preimage=344f7b8e568f63e0..., fees_paid=0, payee state=settled, 138ms
+member5 -> member1 [same hub (self-payment)]: preimage=2bb38af11886f5e2..., fees_paid=0, payee state=settled, 140ms
 
-over-budget: member2 pays a second contribution in the same budget period
+node state after round (hub API /api/channels + /api/balances):
+┌─────────┬───────────────────┬────────────────────┬──────────────────┬─────────────┐
+│ (index) │ channel_local_sat │ channel_remote_sat │ ln_spendable_sat │ onchain_sat │
+├─────────┼───────────────────┼────────────────────┼──────────────────┼─────────────┤
+│ hub A   │ 447000            │ 48000              │ 441340           │ 499844      │
+│ hub B   │ 53660             │ 441340             │ 48000            │ 0           │
+└─────────┴───────────────────┴────────────────────┴──────────────────┴─────────────┘
+
+connection balances after round (NWC get_balance):
+┌─────────┬─────┬─────────┬─────────────┐
+│ (index) │ hub │ pay_sat │ receive_sat │
+├─────────┼─────┼─────────┼─────────────┤
+│ member1 │ 'b' │ 3000    │ 4000        │
+│ member2 │ 'a' │ 2000    │ 0           │
+│ member3 │ 'a' │ 2000    │ 0           │
+│ member4 │ 'a' │ 2000    │ 0           │
+│ member5 │ 'b' │ 2000    │ 0           │
+└─────────┴─────┴─────────┴─────────────┘
+hub A channel local delta = -3000 sat, hub B channel local delta = 3000 sat, cross-hub total = 3000 sat: OK
+
+over-budget: member2 (hub a) pays a second contribution in the same budget period
 Failed to request pay_invoice Nip47WalletError: Your app does not have enough budget remaining to make this payment. Please review this app in the connections page of your Alby Hub.
-    at Subscription.onevent (file:///Users/amf/Desktop/Git-projects/bitcoin-hackathon/spike/node_modules/@getalby/sdk/dist/esm/nwc.js:7779:36)
-    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
   code: 'QUOTA_EXCEEDED'
 }
 rejected: Nip47WalletError code=QUOTA_EXCEEDED message="Your app does not have enough budget remaining to make this payment. Please review this app in the connections page of your Alby Hub."
 
-least privilege: member1's receive connection tries pay_invoice
-Failed to request pay_invoice Nip47WalletError: This app does not have the pay_invoice scope
-    at Subscription.onevent (file:///Users/amf/Desktop/Git-projects/bitcoin-hackathon/spike/node_modules/@getalby/sdk/dist/esm/nwc.js:7779:36)
-    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
-  code: 'RESTRICTED'
+fee reserve: hub A connection with budget exactly 1000 sat pays one 1000 sat cross-hub invoice
+Failed to request pay_invoice Nip47WalletError: Your app does not have enough budget remaining to make this payment. Please review this app in the connections page of your Alby Hub.
+  code: 'QUOTA_EXCEEDED'
 }
-rejected: Nip47WalletError code=RESTRICTED message="This app does not have the pay_invoice scope"
+rejected: Nip47WalletError code=QUOTA_EXCEEDED message="Your app does not have enough budget remaining to make this payment. Please review this app in the connections page of your Alby Hub."
 
-balances final (via NWC get_balance):
-┌─────────┬─────────┬─────────────┐
-│ (index) │ pay_sat │ receive_sat │
-├─────────┼─────────┼─────────────┤
-│ member1 │ 3000    │ 4000        │
-│ member2 │ 2000    │ 0           │
-│ member3 │ 2000    │ 0           │
-│ member4 │ 2000    │ 0           │
-│ member5 │ 2000    │ 0           │
-└─────────┴─────────┴─────────────┘
+backing: hub A /api/transfers 10000000 sat from the main wallet into the probe connection (hub A holds 441340 sat spendable)
+accepted: probe get_balance now 10003000 sat
+
+node state final (hub API /api/channels + /api/balances):
+┌─────────┬───────────────────┬────────────────────┬──────────────────┬─────────────┐
+│ (index) │ channel_local_sat │ channel_remote_sat │ ln_spendable_sat │ onchain_sat │
+├─────────┼───────────────────┼────────────────────┼──────────────────┼─────────────┤
+│ hub A   │ 447000            │ 48000              │ 441340           │ 499844      │
+│ hub B   │ 53660             │ 441340             │ 48000            │ 0           │
+└─────────┴───────────────────┴────────────────────┴──────────────────┴─────────────┘

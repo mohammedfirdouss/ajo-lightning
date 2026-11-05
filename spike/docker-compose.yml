@@ -1,3 +1,21 @@
+name: ajo-two-hub
+
+x-hub: &hub
+  image: ghcr.io/getalby/hub:v1.24.6
+  depends_on: [bitcoind, relay]
+  environment: &hubenv
+    WORK_DIR: /data/albyhub
+    NETWORK: regtest
+    LN_BACKEND_TYPE: LDK
+    LDK_BITCOIND_RPC_HOST: bitcoind
+    LDK_BITCOIND_RPC_PORT: "18443"
+    LDK_BITCOIND_RPC_USER: spike
+    LDK_BITCOIND_RPC_PASSWORD: spike
+    LDK_LISTENING_ADDRESSES: 0.0.0.0:9735
+    RELAY: ws://relay:8080
+    AUTO_UNLOCK_PASSWORD: spike-unlock-pw
+    LOG_LEVEL: "4"
+
 services:
   bitcoind:
     image: bitcoin/bitcoin:28.1
@@ -20,26 +38,22 @@ services:
     volumes:
       - relay:/usr/src/app/db
 
-  hub:
-    image: ghcr.io/getalby/hub:v1.24.6
-    depends_on: [bitcoind, relay]
+  hub-a:
+    <<: *hub
     ports:
-      - "127.0.0.1:8080:8080"
-    environment:
-      WORK_DIR: /data/albyhub
-      NETWORK: regtest
-      LN_BACKEND_TYPE: LDK
-      LDK_BITCOIND_RPC_HOST: bitcoind
-      LDK_BITCOIND_RPC_PORT: "18443"
-      LDK_BITCOIND_RPC_USER: spike
-      LDK_BITCOIND_RPC_PASSWORD: spike
-      RELAY: ws://relay:8080
-      AUTO_UNLOCK_PASSWORD: spike-unlock-pw
-      LOG_LEVEL: "4"
+      - "127.0.0.1:8081:8080"
     volumes:
-      - hub:/data
+      - hub-a:/data
+
+  hub-b:
+    <<: *hub
+    ports:
+      - "127.0.0.1:8082:8080"
+    volumes:
+      - hub-b:/data
 
 volumes:
   bitcoind:
   relay:
-  hub:
+  hub-a:
+  hub-b:
