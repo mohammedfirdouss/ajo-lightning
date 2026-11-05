@@ -11,12 +11,18 @@ import { expectDelta, expectSteady, hubGet, loadStack, type Stack, sat, snapshot
  *
  * - The runner reads the stack from `connections.json` in the seed's `state` volume, most simply through
  *   `loadStack()` in `scripts/stack.ts`. Each member has a `pay` and a `receive` NWC connection.
+ * - Round N pays members[(N - 1) % n], in the order of `members` in `connections.json`. Every other
+ *   member pays that round's payee once.
  * - Each paid entry carries `paymentHash`, 64 lowercase hex: the payment hash of the invoice the payee's
- *   receive connection minted. The payee's hub must hold that hash as a settled incoming payment of
- *   exactly `contributionSat` sats.
+ *   receive connection minted. No two payers share a hash. The payee's hub must hold that hash as a
+ *   settled incoming payment of exactly `contributionSat` sats.
  * - For each paid entry the runner publishes one Nostr event to `relayUrl`, signed by the key whose hex
  *   public key is `circlePubkey`, with the tags `["t", "ajo-receipt"]` and `["payment_hash", <paymentHash>]`.
- * - A rerun of a round reports the same hashes and mints no new invoice.
+ * - A rerun of a round reports the same hashes and mints no new invoice. The rerun state is a SQLite file,
+ *   `/state/ajo.db` in the seed's `state` volume, so `docker compose down -v` clears it with the stack.
+ *   The host command runs the round in the compose `app` service, which mounts that volume.
+ * - The circle's Nostr key is `AJO_CIRCLE_KEY` in `.env`, beside `AJO_SECRET_KEY`, which encrypts member
+ *   names and NWC secrets in that file. The first host run writes both to `.env` if they are missing.
  * - The runner must finish within RUNNER_TIMEOUT_MS, so it mints invoices with an expiry well under that
  *   and never waits out an unpaid one.
  */
@@ -85,6 +91,10 @@ export function checkReceipts(stack: Stack, report: RoundReport, events: Event[]
 	const named = paid.map((c) => c.member).sort();
 	if (named.join() !== payers.join()) {
 		throw new Error(`round ${report.round} reports ${paid.length} paid contributions (${named.join(", ")}), expected one from each of ${payers.join(", ")}`);
+	}
+	const hashes = new Set(paid.map((c) => c.paymentHash));
+	if (hashes.size !== paid.length) {
+		throw new Error(`round ${report.round} reports ${paid.length} paid contributions under ${hashes.size} payment hashes, expected one hash per payer`);
 	}
 	for (const c of paid) {
 		const matching = events.filter((e) => e.tags.some(([k, v]) => k === "payment_hash" && v === c.paymentHash));
