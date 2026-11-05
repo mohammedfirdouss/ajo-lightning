@@ -52,6 +52,28 @@ console.error = (...args: unknown[]) => {
 	logError(...args);
 };
 
+/**
+ * Until a wallet has answered, every SDK request first fetches the wallet's info event to pick an encryption.
+ * Concurrent fetches on one relay connection lose that event about one time in twenty, and the request is never sent.
+ */
+export function firstAlone() {
+	let answered = false;
+	let queue: Promise<unknown> = Promise.resolve();
+	return <T>(req: () => Promise<T>): Promise<T> => {
+		if (answered) return req();
+		const p = queue.then(req);
+		queue = p.then(
+			() => {
+				answered = true;
+			},
+			(e) => {
+				if (e instanceof Nip47WalletError) answered = true;
+			},
+		);
+		return p;
+	};
+}
+
 export type Wallet = ReturnType<typeof connect>;
 
 /**
@@ -60,13 +82,14 @@ export type Wallet = ReturnType<typeof connect>;
  */
 export function connect(uri: string) {
 	const client = new NWCClient({ nostrWalletConnectUrl: uri });
+	const send = firstAlone();
 	return {
 		async makeHoldInvoice(amount: Sats, description: string, expirySec: number, hash: PaymentHash, ms: number): Promise<Invoice> {
-			return parseInvoice(await within(ms, client.makeHoldInvoice({ amount: amount * 1000, description, expiry: expirySec, payment_hash: hash })), amount, hash);
+			return parseInvoice(await within(ms, send(() => client.makeHoldInvoice({ amount: amount * 1000, description, expiry: expirySec, payment_hash: hash }))), amount, hash);
 		},
 		async pay(invoice: Invoice, ms: number): Promise<{ preimage: Preimage } | { error: FailReason }> {
 			try {
-				const { preimage } = await within(Math.min(PAY_REPLY_MS, ms), client.payInvoice({ invoice: invoice.bolt11 }));
+				const { preimage } = await within(Math.min(PAY_REPLY_MS, ms), send(() => client.payInvoice({ invoice: invoice.bolt11 })));
 				return typeof preimage === "string" && HEX32.test(preimage) ? { preimage: preimage as Preimage } : { error: "PAYMENT_FAILED" };
 			} catch (e) {
 				return { error: failReason(e) };
@@ -74,16 +97,16 @@ export function connect(uri: string) {
 		},
 		/** A lookup only reads, so any failure, including the SDK's plain relay errors, is no answer yet. */
 		async lookup(invoice: Invoice, ms: number): Promise<HoldState | undefined> {
-			const tx = await within(ms, client.lookupInvoice({ payment_hash: invoice.paymentHash })).catch(() => undefined);
+			const tx = await within(ms, send(() => client.lookupInvoice({ payment_hash: invoice.paymentHash }))).catch(() => undefined);
 			return tx && holdState(tx, invoice);
 		},
 		/** The hub refuses a settle until a payment is accepted. A lookup tells whether a refused or silent settle landed. */
 		async settle(preimage: Preimage, ms: number) {
-			await within(ms, client.settleHoldInvoice({ preimage })).catch(() => {});
+			await within(ms, send(() => client.settleHoldInvoice({ preimage }))).catch(() => {});
 		},
 		/** The hub answers NOT_FOUND while no payment is held, and a failed invoice never settles anyway, so any error is fine. */
 		async cancel(invoice: Invoice, ms: number) {
-			await within(ms, client.cancelHoldInvoice({ payment_hash: invoice.paymentHash })).catch(() => {});
+			await within(ms, send(() => client.cancelHoldInvoice({ payment_hash: invoice.paymentHash }))).catch(() => {});
 		},
 		close: () => client.close(),
 	};
