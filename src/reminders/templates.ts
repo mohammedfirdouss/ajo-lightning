@@ -34,6 +34,14 @@ export const LANGUAGES: Record<Lang, Language> = {
 	},
 };
 
+const SEAT: Record<Lang, string> = { en: "Member", pcm: "Member", yo: "Ọmọ ẹgbẹ́", fr: "Membre", wo: "Mbokk" };
+
+/** Puts the member's name where the reminder names their seat. The name stays on this server and never reaches the model. */
+export function addressed(text: string, input: ReminderInput, name: string) {
+	const seats = new Set([SEAT[input.lang], "Member"].map((w) => `${w} ${input.member}`));
+	return [...seats].reduce((t, seat) => t.replace(new RegExp(`${seat}(?!\\d)`, "g"), () => name), text);
+}
+
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const isCalendarDate = (d: string) => DATE.test(d) && !Number.isNaN(Date.parse(d)) && new Date(d).toISOString().slice(0, 10) === d;

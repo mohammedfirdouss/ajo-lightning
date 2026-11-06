@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import Anthropic from "@anthropic-ai/sdk";
 import { reminder, TIMEOUT_MS } from "../../src/reminders/reminders.ts";
-import { LANGUAGES, type Lang, reminderInput } from "../../src/reminders/templates.ts";
+import { addressed, LANGUAGES, type Lang, reminderInput } from "../../src/reminders/templates.ts";
 import { sats } from "../../src/round/types.ts";
 
 const input = (lang: Lang) => reminderInput({ lang, amount: sats(4000), due: "2026-11-12", member: 3 });
@@ -98,4 +98,15 @@ test("round state outside the domain is rejected before any reminder", () => {
 		assert.throws(() => reminderInput({ lang: "en", amount: sats(1), due, member: 1 }), /YYYY-MM-DD/, due);
 	}
 	assert.equal(reminderInput({ lang: "en", amount: sats(1), due: "2028-02-29", member: 1 }).due, "2028-02-29");
+});
+
+test("the page puts the member's name where a reminder names their seat, in every language and in model text", () => {
+	for (const lang of Object.keys(LANGUAGES) as Lang[]) {
+		const input = reminderInput({ lang, amount: sats(1000), due: "2026-11-13", member: 3 });
+		const text = addressed(LANGUAGES[lang].template(input), input, "Fatou");
+		assert.match(text, /Fatou/, lang);
+		assert.doesNotMatch(text, /\b3\b/, lang);
+	}
+	const input = reminderInput({ lang: "fr", amount: sats(1000), due: "2026-11-13", member: 3 });
+	assert.equal(addressed("Bonjour Member 3, payez 1000 sats. Member 31 non.", input, "Fatou"), "Bonjour Fatou, payez 1000 sats. Member 31 non.");
 });

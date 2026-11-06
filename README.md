@@ -10,7 +10,7 @@ Built for the [Dakar Bitcoin Hack 2026](https://dakar-bitcoin-hack-2026.devpost.
 <img src="docs/media/round-partial.png" width="200" alt="Round 2 pays Chidi, partly paid. Ada has paid. Fatou and Moussa show Not paid, over your limit, each with a reminder to copy into WhatsApp. The bar at the bottom offers Check unpaid payments.">
 </p>
 
-[docs/media/quickstart-round.mp4](docs/media/quickstart-round.mp4) records the steps below on the demo stack, from an empty circle to round 1's receipts, in 10 seconds.
+[docs/media/demo.mp4](docs/media/demo.mp4) is the 2.5-minute demo, recorded on the live regtest stack. [docs/media/quickstart-round.mp4](docs/media/quickstart-round.mp4) records the steps below on the demo stack, from an empty circle to round 1's receipts, in 10 seconds.
 
 ## Run the demo
 
@@ -51,7 +51,7 @@ The round page shows a reminder on each member row that is waiting or not paid, 
 scripts/remind --lang fr --amount 4000 --due 2026-11-12 --member 3
 ```
 
-`ANTHROPIC_API_KEY` is optional. Export it before `docker compose up` to pass it to the web service. With a key, Claude Haiku 5.5 (`claude-haiku-5-5`) writes the message and sees only the language, the seat label, the amount, and the due date. Without a key, or when the call fails or takes longer than 3.5 seconds, the script prints a fixed template. The round page never waits for the model. It shows the template first and the model's text on a later load. A bad argument prints the usage line and exits 2. The Yoruba and Wolof templates still need a check by a native speaker.
+`ANTHROPIC_API_KEY` is optional. Export it before `docker compose up` to pass it to the web service. With a key, Claude Haiku 5.5 (`claude-haiku-5-5`) writes the message and sees only the language, the seat label, the amount, and the due date. Without a key, or when the call fails or takes longer than 3.5 seconds, the script prints a fixed template. The round page never waits for the model. It shows the template first and the model's text on a later load. A bad argument prints the usage line and exits 2.
 
 ## How it works
 
