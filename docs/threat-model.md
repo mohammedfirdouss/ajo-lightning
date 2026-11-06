@@ -43,7 +43,7 @@ This page lists what Ajo on Lightning protects, who could attack it, and each co
 | A pasted link shows up again on a page or in a log. | Link fields are password inputs. An error message never echoes what was pasted. The container logs pseudonyms, never names. | `test/web/server.test.ts`, "a bad link is refused with a plain message that never echoes what was pasted". `src/run-round.ts`, `withNames`. |
 | A receipt reveals who paid. | A receipt holds the round, a pseudonym, the amount and the payment hash, and the circle's key signs it. | `test/adapters/receipts.test.ts`, "a receipt carries only the round, pseudonymous payer, amount, and payment hash". |
 | Injected script on a page. | Every page sends a content security policy of `self` plus the hashes of its one inline stylesheet and script. | `test/web/server.test.ts`, "pages carry a policy of self only". A live run at this commit saw Chromium refuse an injected style tag with that policy. |
-| The reminder model sees personal data. | The request holds the language, the seat number, the amount and the due date, and no name or phone number. | `test/reminders/reminders.test.ts`, "the request body holds no member name or phone number". |
+| The reminder model sees personal data. | The request holds the language, the seat number, the amount and the due date, and no name or phone number. The page adds the name after the reply, on the server. | `test/reminders/reminders.test.ts`, "the request body holds no member name or phone number". |
 | A stranger on the network reaches the stack. | Every published port binds to `127.0.0.1`. bitcoind publishes no port. | `docker-compose.yml`, each `ports:` line. |
 
 ## Notes on specific cases

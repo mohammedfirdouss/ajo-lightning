@@ -152,7 +152,7 @@ test("after five wrong passcodes even the right one waits out the window", async
 	assert.equal((await app.request("/round/1/collect", collect())).status, 303);
 });
 
-test("a waiting payer's reminder comes from the reminder writer for their seat, language and due date", async () => {
+test("a waiting payer's reminder comes from the reminder writer for their seat, language and due date, and greets them by name", async () => {
 	const asked: unknown[] = [];
 	const app = await circleOfFive(fakeSource({ spentSat: { member3: 1000 } }), {
 		remind: (input) => {
@@ -162,7 +162,7 @@ test("a waiting payer's reminder comes from the reminder writer for their seat, 
 	});
 	await app.request("/round/1/collect", collect());
 	const page = await until(async () => (await app.request("/round/1")).text(), /data-live="0"/);
-	assert.match(page, /data-member="member3">[\s\S]*?Member 3 owes 1000[\s\S]*?Copy for WhatsApp/);
+	assert.match(page, new RegExp(`data-member="member3">[\\s\\S]*?${names[2]} owes 1000[\\s\\S]*?Copy for WhatsApp`));
 	assert.deepEqual(asked.at(-1), { lang: "en", amount: 1000, due: new Date().toISOString().slice(0, 10), member: 3 });
 });
 

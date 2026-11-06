@@ -32,7 +32,7 @@ Ajo on Lightning removes the pot. Each round, every member's own wallet pays tha
 - **Bitcoin.** The demo runs Bitcoin Core 28.1 on regtest. The seed funds each member's node on chain and opens a channel from each member to a router node.
 - **Lightning.** Each member runs Alby Hub v1.24.6 on LDK. Payments route from the payer through the router to the payee, for a routing fee of 1 sat. Hold invoices make expiry final.
 - **Nostr.** Every wallet request is a NIP-47 Nostr Wallet Connect event, encrypted end to end between Ajo and the wallet, and carried by a Nostr relay. Receipts are signed Nostr events that anyone can fetch from the relay and check.
-- **AI.** With an Anthropic API key, Claude Haiku writes each payment reminder in English, Nigerian Pidgin, Yoruba, French or Wolof. The model sees only the language, the seat number, the amount and the due date, never a name or a phone number. Without a key, or if the call takes longer than 3.5 seconds, the page shows a fixed template.
+- **AI.** With an Anthropic API key, Claude Haiku writes each payment reminder in English, Nigerian Pidgin, Yoruba, French or Wolof. The model sees only the language, the seat number, the amount and the due date, never a name or a phone number. The page puts the member's name in afterwards, on the server. Without a key, or if the call takes longer than 3.5 seconds, the page shows a fixed template.
 
 ## The wallet implementation
 
@@ -73,3 +73,5 @@ You need Docker. Run `docker compose up` in the repo, wait for `seed done`, and 
 ## Built with
 
 TypeScript, Node.js, Hono, SQLite, Alby Hub, LDK, Bitcoin Core, Nostr, nostr-tools, the Alby JS SDK, the Anthropic SDK, Claude Haiku, TLA+, Docker Compose.
+
+The code, tests and docs were written with Claude Code: agents built each pull request and independent agents checked it on the live regtest stack before it merged.
