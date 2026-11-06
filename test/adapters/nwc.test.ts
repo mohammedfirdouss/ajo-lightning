@@ -23,6 +23,11 @@ test("a wallet refusal maps by its code, whatever the message says", () => {
 	}
 });
 
+test("a retry the hub refuses because the first pay is still in flight maps to TIMEOUT, not a failed payment", () => {
+	assert.equal(failReason(new Nip47WalletError("there is already a payment pending for this invoice", "INTERNAL")), "TIMEOUT");
+	assert.equal(failReason(new Nip47WalletError("received payment failed event: RecipientRejected", "INTERNAL")), "PAYMENT_FAILED");
+});
+
 test("no reply, or no way to send the request, maps to TIMEOUT so the runner looks the invoice up", () => {
 	for (const e of [new Nip47ReplyTimeoutError("reply timeout", "OTHER"), new Nip47PublishTimeoutError("publish timeout", "OTHER"), new Nip47NetworkError("relay down", "OTHER"), new Error("socket hang up")]) {
 		assert.equal(failReason(e), "TIMEOUT", e.message);
