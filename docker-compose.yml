@@ -115,6 +115,8 @@ services:
     environment:
       HOST: 0.0.0.0
       PORT: "8000"
+      AJO_PUBLIC_URL: http://127.0.0.1:${WEB_PORT:-8000}
+      NODE_NO_WARNINGS: "1"
       AJO_STATE_DIR: /state
       AJO_RELAY_URL: ws://relay:8080
       AJO_PUBLIC_RELAY_URL: ws://127.0.0.1:${RELAY_PORT:-7100}

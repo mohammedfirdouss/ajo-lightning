@@ -4,9 +4,12 @@ import { type FailReason, HEX32, type Invoice, type PaymentHash, type Preimage, 
 /** What the payee's hub says about a hold invoice. `gone` is cancelled or expired on the hub, so it can never settle. */
 export type HoldState = "open" | "accepted" | "settled" | "gone";
 
-/** A wallet refusal names a code. Anything else means no reply proved the payment either way. */
+/** Alby Hub's refusal of a second pay while the first is in flight. It reports `INTERNAL`, which would read as a failed payment. */
+const STILL_PAYING = /already a payment pending for this invoice/;
+
+/** A wallet refusal names a code. Anything else, or a refusal because the first pay is still in flight, means no reply proved the payment either way. */
 export function failReason(e: unknown): FailReason {
-	if (e instanceof Nip47WalletError) {
+	if (e instanceof Nip47WalletError && !STILL_PAYING.test(e.message)) {
 		if (e.code === "QUOTA_EXCEEDED") return "QUOTA_EXCEEDED";
 		if (e.code === "INSUFFICIENT_BALANCE") return "INSUFFICIENT_BALANCE";
 		return "PAYMENT_FAILED";
