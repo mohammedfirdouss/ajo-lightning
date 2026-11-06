@@ -215,5 +215,5 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
 	if (!(rate > 0)) throw new Error(`AJO_NAIRA_PER_SAT must be a positive number, got ${process.env.AJO_NAIRA_PER_SAT}`);
 	const port = Number(process.env.PORT ?? 8000);
 	const hostname = process.env.HOST ?? "127.0.0.1";
-	serve({ fetch: createApp(sourceFromEnv(process.env), rate).fetch, port, hostname }, () => console.log(`ajo web on http://${hostname}:${port}`));
+	serve({ fetch: createApp(sourceFromEnv(process.env), rate).fetch, port, hostname }, () => console.log(`ajo web on ${process.env.AJO_PUBLIC_URL ?? `http://${hostname}:${port}`}`));
 }

@@ -53,7 +53,7 @@ test("a payer past their limit shows over your limit and the round is partly pai
 	const page = await until(async () => (await app.request("/round/1")).text(), /data-live="0"/);
 	assert.match(page, /data-member="member3"><b>Chidi<\/b><span><span class="word">Not paid<\/span>, over your limit/);
 	assert.match(page, /Partly paid/);
-	assert.match(page, /Send back any late payments/);
+	assert.match(page, /Check unpaid payments/);
 });
 
 test("a round whose collect stopped on an error offers to finish collecting instead of collecting forever", async () => {

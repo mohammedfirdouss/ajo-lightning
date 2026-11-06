@@ -64,15 +64,18 @@ test("the round page says paid, waiting, or not paid with a plain reason for eac
 	assert.match(String(await page), /data-live="1"/);
 });
 
-test("the round page offers to collect a new round, to send back late payments on a partial one, and nothing for a complete one", async () => {
+test("the round page offers to collect a new round, to check the unpaid payments on a partial one, and nothing for a complete one", async () => {
 	const pending = ids.slice(1).map((payer) => ({ state: "pending" as const, payer }));
 	assert.match(await visible(roundPage(circle, round("scheduled", pending), m)), /Collect this round/);
-	const partial = roundPage(circle, round("partial", [paid(1), paid(2), paid(3), { state: "failed", payer: ids[4], invoice: invoice(4), tries: 2, reason: "QUOTA_EXCEEDED" }]), m);
-	assert.match(await visible(partial), /Partly paid .* 3 paid · 0 waiting · 1 not paid/);
-	assert.match(await visible(partial), /Send back any late payments/);
+	const partial = await visible(roundPage(circle, round("partial", [paid(1), paid(2), paid(3), { state: "failed", payer: ids[4], invoice: invoice(4), tries: 2, reason: "QUOTA_EXCEEDED" }]), m));
+	assert.match(partial, /Partly paid .* 3 paid · 0 waiting · 1 not paid/);
+	assert.match(partial, /Check unpaid payments/);
+	assert.match(partial, /never charges anyone again/);
+	assert.match(partial, /pay next round, or settle with the organiser/);
+	assert.doesNotMatch(partial, /Try the unpaid|Send back/);
 	const complete = await visible(roundPage(circle, round("complete", [paid(1), paid(2), paid(3), paid(4)]), m));
 	assert.match(complete, /Complete · 4 paid/);
-	assert.doesNotMatch(complete, /Collect this round|Send back|Finish collecting/);
+	assert.doesNotMatch(complete, /Collect this round|Check unpaid|Finish collecting/);
 	assert.match(complete, /See the receipts/);
 });
 
