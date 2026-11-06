@@ -21,7 +21,7 @@ import { inlineHashes } from "./pages/layout.ts";
 import { roundPage } from "./pages/round.ts";
 import { limiter, lock, opens, PASSCODE } from "./passcode.ts";
 import { dueDate, reminders } from "./remind.ts";
-import { type Circle, type Links, nwcLink, type RoundSource } from "./source.ts";
+import { type Circle, type Links, maxContribution, nwcLink, payBudget, type RoundSource } from "./source.ts";
 
 const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 const name = (v: unknown) => {
@@ -107,7 +107,9 @@ export function createApp(source: RoundSource, nairaPerSat: number, { remind = r
 			return fail(`Choose a passcode of ${PASSCODE.min} to ${PASSCODE.max} characters.`);
 		}
 		const cap = source.demo?.capSat;
-		if (cap !== undefined && contribution > cap) return fail(`On this demo stack each wallet can pay up to ${cap} sat a month. Choose ${cap} sat or less.`);
+		if (cap !== undefined && payBudget(contribution) > cap) {
+			return fail(`On this demo stack each wallet can pay up to ${cap} sat a week, fee included. Choose ${maxContribution(cap)} sat or less.`);
+		}
 		if (await source.circle()) return c.redirect("/", 303);
 		const start = new Date().toISOString().slice(0, 10);
 		await source.create({ name: n, contribution: sats(contribution), cadence, lang: lang as Circle["lang"], start, lock: await lock(code) });

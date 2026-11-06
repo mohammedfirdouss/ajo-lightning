@@ -53,10 +53,10 @@ test("a payer past their limit shows over your limit and the round is partly pai
 	const page = await until(async () => (await app.request("/round/1")).text(), /data-live="0"/);
 	assert.match(page, /data-member="member3"><b>Chidi<\/b><span><span class="word">Not paid<\/span>, over your limit/);
 	assert.match(page, /Partly paid/);
-	assert.match(page, /Try the unpaid members again/);
+	assert.match(page, /Send back any late payments/);
 });
 
-test("a round whose collect stopped on an error offers to try again instead of collecting forever", async () => {
+test("a round whose collect stopped on an error offers to finish collecting instead of collecting forever", async () => {
 	const source = fakeSource({ stepMs: 1 });
 	let stuck = true;
 	let calls = 0;
@@ -73,7 +73,7 @@ test("a round whose collect stopped on an error offers to try again instead of c
 		},
 	});
 	await app.request("/round/1/collect", collect());
-	const stalled = await until(async () => (await app.request("/round/1")).text(), /Try the unpaid members again/);
+	const stalled = await until(async () => (await app.request("/round/1")).text(), /Finish collecting this round/);
 	assert.match(stalled, /data-live="0"/);
 	assert.doesNotMatch(stalled, /Collecting/);
 	assert.match(stalled, /class="phase">Stopped/);
@@ -186,10 +186,12 @@ test("the demo wallets join through the same checks as pasted links", async () =
 test("on the demo stack a circle cannot ask more than a demo wallet may pay", async () => {
 	const source: RoundSource = { ...fakeSource(), demo: { capSat: sats(1010), wallets: [] } };
 	const app = createApp(source, 1.5, { remind: () => "template" });
-	assert.match(await (await app.request("/")).text(), /demo wallets can each pay up to 1010 sat a month/);
+	assert.match(await (await app.request("/")).text(), /demo wallets can each pay up to 1010 sat a week/);
 	const over = await app.request("/circle", form({ name: "Market ajo", contribution: "5000", cadence: "monthly", lang: "en", passcode }));
 	assert.equal(over.status, 422);
-	assert.match(await over.text(), /Choose 1010 sat or less/);
+	assert.match(await over.text(), /up to 1010 sat a week, fee included. Choose 1000 sat or less/);
+	const feeless = await app.request("/circle", form({ name: "Market ajo", contribution: "1010", cadence: "monthly", lang: "en", passcode }));
+	assert.equal(feeless.status, 422, "1010 sat leaves no room for the routing fee");
 	assert.equal(await source.circle(), undefined, "the refused circle is not stored, so the organiser can try again");
-	assert.equal((await app.request("/circle", form({ name: "Market ajo", contribution: "1010", cadence: "monthly", lang: "en", passcode }))).status, 303);
+	assert.equal((await app.request("/circle", form({ name: "Market ajo", contribution: "1000", cadence: "monthly", lang: "en", passcode }))).status, 303);
 });

@@ -6,8 +6,8 @@ The round page at `/round/<n>` shows who the round pays, how many sats have arri
 
 - "Collect this round" starts the round. While it collects, `public/app.js` refetches the page each second and swaps the rows. Without scripts the page reloads every 2 seconds.
 - A second press, a double tap, or a reload never starts a second collect of the same round.
-- A partial round offers "Try the unpaid members again", which reruns the round. A complete round offers only its receipts.
-- A round left collecting with no collect running, after a runner error such as an NWC relay timeout or a `web` restart mid-round, reads "Stopped" and offers "Try the unpaid members again". To reach it on the stack, press collect, then run `docker compose kill web` and `docker compose up -d --no-deps web` at once.
+- A partial round offers "Send back any late payments", which reruns the round. The rerun never pays again. It cancels the expired invoices again, which returns any payment that reached the payee's hub after the first cancel. The rows stay "Not paid". A complete round offers only its receipts.
+- A round left collecting with no collect running, after a runner error such as an NWC relay timeout or a `web` restart mid-round, reads "Stopped" and offers "Finish collecting this round". To reach it on the stack, press collect, then run `docker compose kill web` and `docker compose up -d --no-deps web` at once.
 - The progress card shows sats and naira paid out of the total.
 - The passcode field and the button sit in the bar fixed to the bottom of the screen. A wrong passcode starts no round and shows "That passcode is not this circle's".
 - Each row that is waiting or not paid shows a reminder in the circle's language and a "Copy for WhatsApp" button that puts the reminder on the clipboard. A paid row shows none. With `ANTHROPIC_API_KEY` set, the first load shows the template and a later load shows the model's text.

@@ -64,15 +64,15 @@ test("the round page says paid, waiting, or not paid with a plain reason for eac
 	assert.match(String(await page), /data-live="1"/);
 });
 
-test("the round page offers to collect a new round, to retry a partial one, and nothing for a complete one", async () => {
+test("the round page offers to collect a new round, to send back late payments on a partial one, and nothing for a complete one", async () => {
 	const pending = ids.slice(1).map((payer) => ({ state: "pending" as const, payer }));
 	assert.match(await visible(roundPage(circle, round("scheduled", pending), m)), /Collect this round/);
 	const partial = roundPage(circle, round("partial", [paid(1), paid(2), paid(3), { state: "failed", payer: ids[4], invoice: invoice(4), tries: 2, reason: "QUOTA_EXCEEDED" }]), m);
 	assert.match(await visible(partial), /Partly paid .* 3 paid · 0 waiting · 1 not paid/);
-	assert.match(await visible(partial), /Try the unpaid members again/);
+	assert.match(await visible(partial), /Send back any late payments/);
 	const complete = await visible(roundPage(circle, round("complete", [paid(1), paid(2), paid(3), paid(4)]), m));
 	assert.match(complete, /Complete · 4 paid/);
-	assert.doesNotMatch(complete, /Collect this round|Try the unpaid/);
+	assert.doesNotMatch(complete, /Collect this round|Send back|Finish collecting/);
 	assert.match(complete, /See the receipts/);
 });
 
@@ -101,7 +101,7 @@ test("the join page asks for both links, hides them as typed, and shows the erro
 test("the join page asks for a pay limit that renews as often as the circle pays", async () => {
 	for (const cadence of ["weekly", "monthly"] as const) {
 		const text = await visible(joinPage({ ...circle, cadence }, m));
-		assert.match(text, new RegExp(`Make it with a ${cadence} limit`));
+		assert.match(text, new RegExp(`Make it with a ${cadence} limit of at least 1,010 sat, which covers 1,000 sat and the routing fee`));
 		assert.doesNotMatch(text, new RegExp(`${cadence === "weekly" ? "monthly" : "weekly"} limit`));
 	}
 });

@@ -12,9 +12,10 @@ import { type Html, layout } from "./layout.ts";
  */
 export type RoundView = { error?: string; reminders?: ReadonlyMap<MemberId, string>; stalled?: boolean };
 
-const action: Partial<Record<Round["phase"], string>> = {
+const action: Partial<Record<Round["phase"] | "stalled", string>> = {
 	scheduled: "Collect this round",
-	partial: "Try the unpaid members again",
+	stalled: "Finish collecting this round",
+	partial: "Send back any late payments",
 };
 
 export function roundPage(circle: Circle, round: Round, m: Money, { error, reminders, stalled = false }: RoundView = {}): Html {
@@ -24,7 +25,7 @@ export function roundPage(circle: Circle, round: Round, m: Money, { error, remin
 	const count = (tone: string) => rows.filter((r) => r.s.tone === tone).length;
 	const total = round.contributions.length * round.contribution;
 	const live = round.phase === "collecting" && !stalled;
-	const label = stalled ? action.partial : action[round.phase];
+	const label = action[stalled ? "stalled" : round.phase];
 	return layout(
 		`Round ${round.id}`,
 		html`<p class="back"><a href="/">Back to ${circle.name}</a></p>

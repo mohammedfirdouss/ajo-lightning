@@ -13,6 +13,7 @@ export function dueDate(start: string, cadence: Cadence, n: RoundId) {
 /**
  * Returns a reminder at once. The first ask for an input starts the slow call and gets the template. A later
  * ask gets whatever that call returned, so a page never waits on the model and the next render shows its text.
+ * A call that fails leaves the template.
  */
 export function reminders(write: (input: ReminderInput) => Promise<Reminder> = reminder) {
 	const ready = new Map<string, string>();
@@ -21,7 +22,10 @@ export function reminders(write: (input: ReminderInput) => Promise<Reminder> = r
 		const key = JSON.stringify(input);
 		if (!asked.has(key)) {
 			asked.add(key);
-			write(input).then((r) => ready.set(key, r.text));
+			write(input).then(
+				(r) => ready.set(key, r.text),
+				() => {},
+			);
 		}
 		return ready.get(key) ?? LANGUAGES[input.lang].template(input);
 	};

@@ -27,8 +27,8 @@ Preconditions:
 - The runner contract is the doc comment on `RoundReport` in `scripts/e2e.ts`. In short:
   - Print the report as the last stdout line and exit 0, also for a partial round.
   - Read the stack with `loadStack()` from `scripts/stack.ts`, which reads `connections.json` in the seed's `state` volume.
-  - Give every paid entry a `paymentHash` of 64 lowercase hex, the hash of the invoice the payee's receive connection minted.
+  - Give every paid entry a `paymentHash` of 64 lowercase hex, the hash of the hold invoice the payee's receive connection minted.
   - Publish one receipt per paid entry to `relayUrl`, signed by the key in `circlePubkey`, tagged `["t", "ajo-receipt"]` and `["payment_hash", <paymentHash>]`.
-  - Finish within 120 seconds. A `lookup` command with `waitUntil` lets the runner wait until the invoice's expiry, so mint invoices with an expiry short enough that this wait ends inside the budget.
+  - Finish within 120 seconds. The runner keeps to its own 100 second budget, and mints invoices that expire after 30 seconds.
 - Check 3 wants one paid contribution from every member except the payee, a settled incoming payment of `contributionSat` on the payee's hub for each hash (read with `GET /api/transactions/<hash>` and the read-only token), and one matching receipt each. Check 4 wants the rerun to report each of those as paid with its round 1 payment hash and nothing as failed, and no balance to move. A runner that mints a new invoice on the rerun fails, even though the budget refuses the payment.
-- Check 2 relies on the monthly pay budget, which allows one contribution. Every round 1 payer is over its cap in round 2.
+- Check 2 relies on the weekly pay budget, which allows one contribution. Every round 1 payer is over its cap in round 2.

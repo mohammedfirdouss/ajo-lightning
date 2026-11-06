@@ -1,6 +1,6 @@
 import { html } from "hono/html";
 import type { Money } from "../copy.ts";
-import type { Circle } from "../source.ts";
+import { type Circle, payBudget } from "../source.ts";
 import { layout } from "./layout.ts";
 import { passcodeToEnter, per } from "./circle.ts";
 
@@ -17,7 +17,7 @@ ${error ? html`<p class="error" role="alert">${error}</p>` : ""}
 ${passcodeToEnter}
 <label>Pay link from your wallet
 <input type="password" name="pay" required autocomplete="off" spellcheck="false" data-scan placeholder="nostr+walletconnect://…">
-<span class="hint">Make it with a ${circle.cadence} limit. Ajo can never spend more than that limit.</span></label>
+<span class="hint">Make it with a ${circle.cadence} limit of at least ${m.sat(payBudget(circle.contribution))}, which covers ${m.sat(circle.contribution)} and the routing fee. Ajo can never spend more than that limit.</span></label>
 <label>Receive link from your wallet
 <input type="password" name="receive" required autocomplete="off" spellcheck="false" data-scan placeholder="nostr+walletconnect://…">
 <span class="hint">Give it only the permissions to create invoices and look them up, so it cannot spend.</span></label>

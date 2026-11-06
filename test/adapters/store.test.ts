@@ -4,6 +4,7 @@ import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { memberId, roundId } from "../../src/round/types.ts";
 import { openStore, pseudonym } from "../../src/store/sqlite.ts";
 
 test("the database file holds no member name and no NWC secret in plain text", (t) => {
@@ -38,4 +39,26 @@ test("a database opened with another key names the fix, not the cipher error", (
 	const other = openStore(join(dir, "ajo.db"), randomBytes(32));
 	t.after(() => other.close());
 	assert.throws(() => other.members(), (e: Error) => /different AJO_SECRET_KEY/.test(e.message) && /docker compose down -v/.test(e.message) && !/authenticate|Unsupported state/.test(e.message));
+});
+
+test("a payer's hold preimage is made once, survives a reopen, and is sealed in the file", (t) => {
+	const dir = mkdtempSync(join(tmpdir(), "ajo-store-"));
+	t.after(() => rmSync(dir, { recursive: true }));
+	const key = randomBytes(32);
+	const [round, ada, bola] = [roundId(1), memberId("ada"), memberId("bola")];
+	const store = openStore(join(dir, "ajo.db"), key);
+	const first = store.holdPreimage(round, ada);
+	assert.equal(store.holdPreimage(round, ada), first);
+	assert.notEqual(store.holdPreimage(round, bola), first);
+	assert.notEqual(store.holdPreimage(roundId(2), ada), first);
+	assert.equal(store.settleSent(round, ada), false);
+	store.markSettleSent(round, ada);
+	store.close();
+	const bytes = Buffer.concat([readFileSync(join(dir, "ajo.db")), readFileSync(join(dir, "ajo.db-wal"), { flag: "a+" })]).toString("latin1");
+	assert.ok(!bytes.includes(first), "preimage in the database file");
+	const again = openStore(join(dir, "ajo.db"), key);
+	t.after(() => again.close());
+	assert.equal(again.holdPreimage(round, ada), first);
+	assert.equal(again.settleSent(round, ada), true);
+	assert.equal(again.settleSent(round, bola), false);
 });

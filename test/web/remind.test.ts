@@ -23,6 +23,18 @@ test("a page gets the template at once while the model writes, then the model's 
 	assert.equal(calls, 1);
 });
 
+test("a model call that fails leaves the template and no unhandled rejection", async (t) => {
+	const unhandled: unknown[] = [];
+	const onUnhandled = (e: unknown) => unhandled.push(e);
+	process.on("unhandledRejection", onUnhandled);
+	t.after(() => process.off("unhandledRejection", onUnhandled));
+	const remind = reminders(() => Promise.reject(new Error("model down")));
+	assert.match(remind(input), /^Bonjour Membre 3/);
+	await new Promise((r) => setTimeout(r, 10));
+	assert.match(remind(input), /^Bonjour Membre 3/);
+	assert.deepEqual(unhandled, []);
+});
+
 test("round n falls due n - 1 weeks or months after the start", () => {
 	assert.equal(dueDate("2026-11-05", "weekly", roundId(1)), "2026-11-05");
 	assert.equal(dueDate("2026-11-05", "weekly", roundId(3)), "2026-11-19");

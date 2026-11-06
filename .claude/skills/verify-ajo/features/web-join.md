@@ -6,7 +6,8 @@ The join page at `/join` takes a name, the circle passcode, a pay NWC link and a
 
 - A link must be a whole `nostr+walletconnect://` link with a 64-hex wallet key, a relay and a 64-hex secret.
 - The pay link and the receive link must differ.
-- Ajo calls NWC `get_info` on each link, and `get_budget` on the pay link. It refuses a receive link whose methods include `pay_invoice`, a pay link whose methods include `make_invoice`, a pay link with no limit or a limit under the contribution, and a wallet that does not answer. Swapped links fail as "Your receive link can spend money".
+- Ajo calls NWC `get_info` on each link, and `get_budget` on the pay link. It refuses a wallet that does not answer, a receive link whose methods include `pay_invoice`, a receive link without `make_hold_invoice`, `settle_hold_invoice`, `cancel_hold_invoice` and `lookup_invoice`, and a pay link whose methods include `make_invoice`. Swapped links fail as "Your receive link can spend money".
+- The pay link needs a limit that renews at least as often as the circle pays and has at least the contribution plus max(1%, 10 sat) unused, 1010 sat for a 1000 sat contribution. A limit that never renews, one that renews less often than the circle pays, such as monthly for a weekly circle, a limit under that amount, and a limit already spent this period are each refused with the amount named. After round 1 on the stack, each seeded pay link has 9 sat left, so it is refused with "has 9 sat left of its limit".
 - A link whose relay refuses the connection fails in about 0.2 seconds. A wrong wallet key or secret fails after about 10 seconds, when the SDK gives up.
 - A link or a name that already belongs to a member is refused.
 - A wrong passcode is refused with status 403. After five wrong tries from one address, every try from it gets 429 for 15 minutes.
@@ -27,5 +28,5 @@ Start the server per [web-circle.md](web-circle.md). On the live stack, take rea
 
 - Screenshot the form only after filling, since the fields are masked.
 - The wrong-passcode limit counts per address. Behind Docker's port mapping every host browser shares one address, so five wrong tries in a lane lock out the rest of that lane for 15 minutes. Run that check last. Never write a link into `$EVIDENCE`.
-- The pay hint asks for a limit that renews as often as the circle pays, weekly or monthly.
+- The pay hint asks for a limit that renews as often as the circle pays, weekly or monthly, and names the amount, such as "at least 1,010 sat".
 - The real source shows the limit the wallet reported. The fake gives every member a limit of contribution plus max(1%, 10 sat), the same budget the seed sets.
