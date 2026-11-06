@@ -51,7 +51,7 @@ The round page shows a reminder on each member row that is waiting or not paid, 
 scripts/remind --lang fr --amount 4000 --due 2026-11-12 --member 3
 ```
 
-`ANTHROPIC_API_KEY` is optional. Export it before `docker compose up` to pass it to the web service. With a key, Claude Haiku 5.5 (`claude-haiku-5-5`) writes the message and sees only the language, the seat label, the amount, and the due date. Without a key, or when the call fails or takes longer than 3.5 seconds, the script prints a fixed template. The round page never waits for the model. It shows the template first and the model's text on a later load. A bad argument prints the usage line and exits 2. The Yoruba and Wolof templates still need a check by a native speaker.
+`ANTHROPIC_API_KEY` is optional. Export it before `docker compose up` to pass it to the web service. With a key, Claude Haiku 5.5 (`claude-haiku-5-5`) writes the message and sees only the language, the seat label, the amount, and the due date. Without a key, or when the call fails or takes longer than 3.5 seconds, the script prints a fixed template. The round page never waits for the model. It shows the template first and the model's text on a later load. A bad argument prints the usage line and exits 2.
 
 ## How it works
 

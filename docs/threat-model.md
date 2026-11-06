@@ -70,7 +70,6 @@ The wrong-passcode counter lives in the `web` process memory and counts per clie
 - The `web` process holds every member's pay link. Someone who takes over the host gets the links and the key that seals them, and can spend up to each member's limit each period. The wallet's limit caps that loss, and it is the reason Ajo insists on one.
 - The router keeps the 50,000 sat that each member pays it during the seed. That payment buys inbound liquidity, so the router can forward payments to every member. On a real network a member would buy that from a Lightning service provider or open a channel that someone else funds.
 - One stack runs one circle. The pages cannot remove a member or start a second circle.
-- The Yoruba and Wolof reminder templates still need a check by a native speaker.
 - The naira amounts use a fixed demo rate, not a live price.
 
 ## Findings from review

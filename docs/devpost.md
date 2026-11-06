@@ -68,7 +68,6 @@ You need Docker. Run `docker compose up` in the repo, wait for `seed done`, and 
 - Ask Alby Hub upstream for two changes. It should refund a payment that arrives after a cancel at once, instead of holding it until the claim deadline. It should also offer hold invoices as their own permission, separate from "create invoices".
 - Host the pages for real circles, with a persistent passcode counter and more than one circle per server.
 - Collect rounds on a schedule, instead of when the organiser presses the button.
-- Have native speakers check the Yoruba and Wolof reminders.
 
 ## Built with
 
