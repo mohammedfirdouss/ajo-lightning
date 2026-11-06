@@ -15,8 +15,11 @@ export type RoundView = { error?: string; reminders?: ReadonlyMap<MemberId, stri
 const action: Partial<Record<Round["phase"] | "stalled", string>> = {
 	scheduled: "Collect this round",
 	stalled: "Finish collecting this round",
-	partial: "Send back any late payments",
+	partial: "Check unpaid payments",
 };
+
+/** A rerun of a partial round only cancels the expired invoices again. It never makes a new one, so the unpaid stay unpaid. */
+const partialHelp = "This checks the unpaid payments again and sends back any sats that came too late. It never charges anyone again. A member who did not pay can pay next round, or settle with the organiser.";
 
 export function roundPage(circle: Circle, round: Round, m: Money, { error, reminders, stalled = false }: RoundView = {}): Html {
 	const names = new Map(circle.members.map((x) => [x.id, x.name]));
@@ -54,7 +57,7 @@ ${beadRing(
 		)}</ul>
 ${
 	label
-		? html`<form method="post" action="/round/${round.id}/collect" class="bar collect"><label>Circle passcode <input type="password" name="passcode" required minlength="${PASSCODE.min}" maxlength="${PASSCODE.max}" autocomplete="current-password"></label><button>${label}</button></form>`
+		? html`${round.phase === "partial" ? html`<p class="hint">${partialHelp}</p>` : ""}<form method="post" action="/round/${round.id}/collect" class="bar collect"><label>Circle passcode <input type="password" name="passcode" required minlength="${PASSCODE.min}" maxlength="${PASSCODE.max}" autocomplete="current-password"></label><button>${label}</button></form>`
 		: live
 			? html`<div class="bar"><button disabled>Collecting…</button></div>`
 			: html`<p><a href="/receipts">See the receipts</a></p>`
