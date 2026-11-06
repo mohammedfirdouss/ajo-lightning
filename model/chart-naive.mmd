@@ -1,0 +1,126 @@
+---
+title: "Ajo round on Lightning"
+---
+stateDiagram-v2
+  state "Legend" as legend {
+    lg0: open
+    lg1: ended
+    lg2: wrong
+    lg3: Breaks RecordMatchesWalletAtEnd or RefusedMeansNoMoneyMoved
+    lg4: Path to the RecordMatchesWalletAtEnd or RefusedMeansNoMoneyMoved bug
+  }
+  class lg0 blue
+  class lg1 teal
+  class lg2 orange
+  class lg3 breaks
+  class lg4 bugPath
+  state "Scheduled" as s0 {
+    s1: No invoice yet
+  }
+  state "Collecting" as s2 {
+    s3: No invoice yet
+    s4: Coordinator down
+    s5: Invoice ready to pay
+    s6: Payment asked for, no reply yet
+    s7: Reply in, not yet recorded
+    s8: Checking the invoice
+    s9: Checking the invoice, it has expired
+    s10: Shown failed, refused by the wallet
+    s11: Reply in, not yet recorded, payee has the sats
+    s12: Shown failed, timed out
+    s13: Shown paid
+    s14: Coordinator down, payee has the sats
+    s15: Shown failed, timed out, payee has the sats
+    s16: Checking the invoice, payee has the sats
+    s17: Invoice ready to pay, payee has the sats
+    s18: Payment asked for, no reply yet, payee has the sats
+    s19: Shown failed, refused by the wallet, payee has the sats
+  }
+  state "Partial" as s20 {
+    s21: Shown failed, refused by the wallet
+    s22: Shown failed, timed out
+    s23: Shown failed, timed out, payee has the sats
+    s24: Shown failed, refused by the wallet, payee has the sats
+  }
+  state "Complete" as s25 {
+    s26: Shown paid
+  }
+  [*] --> s1
+  s1 --> s3: the round opens
+  s3 --> s5: the payee's wallet makes the invoice
+  s5 --> s6: the app asks the payer's wallet to pay
+  s6 --> s7: the wallet refuses, over budget or no funds or the reply times out, payment still in flight or the payment reaches the payee and the reply comes back
+  s6 --> s6: the wallet sends the payment
+  s6 --> s4: the coordinator crashes [after it asked for a payment]
+  s4 --> s8: the coordinator restarts and retries
+  s4 --> s9: the coordinator restarts and retries
+  s7 --> s10: the app records the reply
+  s6 --> s11: the payment reaches the payee and the reply comes back
+  s8 --> s5: the app looks up the invoice
+  s8 --> s9: the invoice expires
+  s9 --> s12: the app looks up the invoice
+  s10 --> s21: the round closes
+  s7 --> s12: the app records the reply
+  s7 --> s11: the late payment reaches the payee
+  s4 --> s14: the late payment reaches the payee
+  s11 --> s13: the app records the reply
+  s12 --> s22: the round closes
+  s12 --> s15: the late payment reaches the payee
+  s8 --> s16: the late payment reaches the payee
+  s11 --> s15: the app records the reply
+  s13 --> s26: the round closes
+  s14 --> s16: the coordinator restarts and retries
+  s22 --> s23: the late payment reaches the payee
+  s10 --> s5: the app looks up the invoice
+  s5 --> s17: the late payment reaches the payee
+  s15 --> s23: the round closes
+  s16 --> s13: the app looks up the invoice
+  s12 --> s5: the app looks up the invoice
+  s6 --> s18: the late payment reaches the payee
+  s17 --> s18: the app asks the payer's wallet to pay
+  s15 --> s13: the app looks up the invoice
+  s18 --> s11: the wallet refuses, over budget or no funds or the payment reaches the payee and the reply comes back or the reply times out, payment still in flight
+  s10 --> s19: the late payment reaches the payee
+  s11 --> s19: the app records the reply
+  s21 --> s24: the late payment reaches the payee
+  s19 --> s24: the round closes
+  classDef breaks fill:#ffecee,stroke:#e72e3b,stroke-width:2.5px,color:#cd2834
+  class s1 blue
+  class s1 bugPath
+  class s3 blue
+  class s3 bugPath
+  class s4 blue
+  class s4 bugPath
+  class s5 blue
+  class s5 bugPath
+  class s6 blue
+  class s6 bugPath
+  class s7 blue
+  class s7 bugPath
+  class s8 blue
+  class s8 bugPath
+  class s9 blue
+  class s10 blue
+  class s11 blue
+  class s11 bugPath
+  class s12 blue
+  class s13 blue
+  class s14 blue
+  class s15 blue
+  class s15 bugPath
+  class s16 blue
+  class s17 blue
+  class s17 bugPath
+  class s18 blue
+  class s18 bugPath
+  class s19 blue
+  class s19 breaks
+  class s19 bugPath
+  class s21 teal
+  class s22 teal
+  class s23 orange
+  class s23 breaks
+  class s23 bugPath
+  class s24 orange
+  class s24 breaks
+  class s26 teal
