@@ -18,7 +18,6 @@ const action: Partial<Record<Round["phase"] | "stalled", string>> = {
 	partial: "Check unpaid payments",
 };
 
-/** A rerun of a partial round only cancels the expired invoices again. It never makes a new one, so the unpaid stay unpaid. */
 const partialHelp = "This checks the unpaid payments again and sends back any sats that came too late. It never charges anyone again. A member who did not pay can pay next round, or settle with the organiser.";
 
 export function roundPage(circle: Circle, round: Round, m: Money, { error, reminders, stalled = false }: RoundView = {}): Html {
