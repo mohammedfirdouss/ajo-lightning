@@ -57,7 +57,7 @@ The depth of the complete state graph search is 44.
 
 ## Charts
 
-`chart-naive.mmd` and `chart-fixed.mmd` draw a round with one payer, from `naive-1payer.cfg` and `fixed-1payer.cfg`. GitHub renders a `.mmd` file as a diagram. In the naive chart, the orange states end with the record wrong. `view.mjs` holds the words on each state and arrow.
+`chart-naive.mmd` and `chart-fixed.mmd` draw a round with one payer, from `naive-1payer.cfg` and `fixed-1payer.cfg`. Each chart is Mermaid text, which any Mermaid viewer draws. In the naive chart, the orange states end with the record wrong. `view.mjs` holds the words on each state and arrow.
 
 The charts come from the `statechart` skill in pstack. It runs TLC, then draws the state graph through `view.mjs`. To make them again:
 
