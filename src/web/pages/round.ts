@@ -18,7 +18,7 @@ const action: Partial<Record<Round["phase"] | "stalled", string>> = {
 	partial: "Check unpaid payments",
 };
 
-const partialHelp = "This checks the unpaid payments again and sends back any sats that came too late. It never charges anyone again. A member who did not pay can pay next round, or settle with the organiser.";
+const partialHelp = "This checks the unpaid payments again and sends back any sats that came too late. It never charges anyone again. A member who did not pay can settle with the organiser.";
 
 export function roundPage(circle: Circle, round: Round, m: Money, { error, reminders, stalled = false }: RoundView = {}): Html {
 	const names = new Map(circle.members.map((x) => [x.id, x.name]));

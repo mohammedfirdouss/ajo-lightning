@@ -71,7 +71,7 @@ test("the round page offers to collect a new round, to check the unpaid payments
 	assert.match(partial, /Partly paid .* 3 paid · 0 waiting · 1 not paid/);
 	assert.match(partial, /Check unpaid payments/);
 	assert.match(partial, /never charges anyone again/);
-	assert.match(partial, /pay next round, or settle with the organiser/);
+	assert.match(partial, /A member who did not pay can settle with the organiser\./);
 	assert.doesNotMatch(partial, /Try the unpaid|Send back/);
 	const complete = await visible(roundPage(circle, round("complete", [paid(1), paid(2), paid(3), paid(4)]), m));
 	assert.match(complete, /Complete · 4 paid/);
