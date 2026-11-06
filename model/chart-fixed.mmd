@@ -1,0 +1,86 @@
+---
+title: "Ajo round on Lightning"
+---
+stateDiagram-v2
+  state "Legend" as legend {
+    lg0: open
+    lg1: ended
+  }
+  class lg0 blue
+  class lg1 teal
+  state "Scheduled" as s0 {
+    s1: No invoice yet
+  }
+  state "Collecting" as s2 {
+    s3: No invoice yet
+    s4: Coordinator down
+    s5: Invoice ready to pay
+    s6: Payment asked for, no reply yet
+    s7: Reply in, not yet recorded
+    s8: Checking the invoice
+    s9: Checking the invoice, it has expired
+    s10: Reply in, not yet recorded, payee has the sats
+    s11: Shown failed, timed out
+    s12: Shown paid
+    s13: Coordinator down, payee has the sats
+    s14: Shown failed, refused by the wallet
+    s15: Checking the invoice, payee has the sats
+    s16: Invoice ready to pay, payee has the sats
+    s17: Payment asked for, no reply yet, payee has the sats
+  }
+  state "Partial" as s18 {
+    s19: Shown failed, timed out
+    s20: Shown failed, refused by the wallet
+  }
+  state "Complete" as s21 {
+    s22: Shown paid
+  }
+  [*] --> s1
+  s1 --> s3: the round opens
+  s3 --> s5: the payee's wallet makes the invoice
+  s5 --> s6: the app asks the payer's wallet to pay
+  s6 --> s7: the wallet refuses, over budget or no funds or the reply times out, payment still in flight or the payment reaches the payee and the reply comes back
+  s6 --> s4: the coordinator crashes [after it asked for a payment]
+  s4 --> s8: the coordinator restarts and retries
+  s4 --> s9: the coordinator restarts and retries
+  s7 --> s8: the app records the reply
+  s6 --> s10: the payment reaches the payee and the reply comes back
+  s8 --> s5: the app looks up the invoice
+  s8 --> s9: the invoice expires
+  s7 --> s9: the app records the reply
+  s9 --> s11: the app looks up the invoice
+  s7 --> s10: the late payment reaches the payee
+  s4 --> s13: the late payment reaches the payee
+  s10 --> s12: the app records the reply
+  s9 --> s14: the app looks up the invoice
+  s8 --> s15: the late payment reaches the payee
+  s11 --> s19: the round closes
+  s10 --> s15: the app records the reply
+  s12 --> s22: the round closes
+  s13 --> s15: the coordinator restarts and retries
+  s14 --> s20: the round closes
+  s5 --> s16: the late payment reaches the payee
+  s15 --> s12: the app looks up the invoice
+  s6 --> s17: the late payment reaches the payee
+  s16 --> s17: the app asks the payer's wallet to pay
+  s17 --> s10: the wallet refuses, over budget or no funds or the payment reaches the payee and the reply comes back or the reply times out, payment still in flight
+  s17 --> s13: the coordinator crashes [after it asked for a payment]
+  class s1 blue
+  class s3 blue
+  class s4 blue
+  class s5 blue
+  class s6 blue
+  class s7 blue
+  class s8 blue
+  class s9 blue
+  class s10 blue
+  class s11 blue
+  class s12 blue
+  class s13 blue
+  class s14 blue
+  class s15 blue
+  class s16 blue
+  class s17 blue
+  class s19 teal
+  class s20 teal
+  class s22 teal
