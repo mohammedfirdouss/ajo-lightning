@@ -10,7 +10,7 @@ Built for the [Dakar Bitcoin Hack 2026](https://dakar-bitcoin-hack-2026.devpost.
 <img src="docs/media/round-partial.png" width="200" alt="Round 2 pays Chidi, partly paid. Ada has paid. Fatou and Moussa show Not paid, over your limit, each with a reminder to copy into WhatsApp. The bar at the bottom offers Check unpaid payments.">
 </p>
 
-[docs/media/quickstart-round.mp4](docs/media/quickstart-round.mp4) records the steps below on the demo stack, from an empty circle to round 1's receipts, in 10 seconds.
+[docs/media/demo.mp4](docs/media/demo.mp4) is the 2.5-minute demo, recorded on the live regtest stack. [docs/media/quickstart-round.mp4](docs/media/quickstart-round.mp4) records the steps below on the demo stack, from an empty circle to round 1's receipts, in 10 seconds.
 
 ## Run the demo
 
