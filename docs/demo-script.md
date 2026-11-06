@@ -26,9 +26,9 @@ The demo takes 3 minutes. It runs on a fresh demo stack with five demo wallets, 
 
 **Screen.** Open round 1, type the passcode, and press **Collect this round**. Each row turns to Paid.
 
-**Say.** "Round 1 pays Ada. Each payment uses a hold invoice. Ada's wallet holds the sats until Ajo releases them with a secret that only Ajo has. If a payment is late, Ajo never releases it, so the member is never charged for a payment shown as failed. Each rerun checks unpaid payments and never mints a new invoice, so nobody pays twice. We checked these retry rules in TLA+ over seven million states before we wrote the code."
+**Say.** "Round 1 pays Ada. Each payment uses a hold invoice. Ada's wallet holds the sats until Ajo releases them with a secret that only Ajo has. If a payment is late, Ajo never releases it, so the member is never charged for a payment shown as failed. Each rerun checks unpaid payments and never mints a new invoice, so nobody pays twice. We checked the retry rules in TLA+ over seven million states before we wrote the code."
 
-**Screen.** Go back to the circle page, open round 2, type the passcode, and press **Collect this round**. Round 2 needs about 30 seconds, so leave it and open **See the receipts**.
+**Screen.** Go back to the circle page, open round 2, type the passcode, and press **Collect this round**. Round 2 needs about 30 seconds, so leave it, go back to the circle page and open **See the receipts**.
 
 **Say.** "Each payment gets a receipt on Nostr, signed by the circle's key, with no names. Anyone can check them."
 
@@ -36,7 +36,7 @@ The demo takes 3 minutes. It runs on a fresh demo stack with five demo wallets, 
 
 **Screen.** Open round 2 again. It is partly paid. Show a red row with its reminder and the **Copy for WhatsApp** button.
 
-**Say.** "Round 2 comes in the same week, so three members are over their weekly limit. Their wallets refused, and no money moved. Each row says so in plain words, and Ajo shows a reminder to paste into WhatsApp, in English, Pidgin, Yoruba, French or Wolof. Each page is about 12 kilobytes, so it loads on a mid-range phone on a weak connection. A market trader in Lagos or Dakar keeps their own sats, and the circle keeps its trust without a pot-holder."
+**Say.** "Round 2 comes in the same week, so three members are over their weekly limit. Their wallets refused, and no money moved. Each row says so in plain words, and Ajo shows a reminder to paste into WhatsApp, in English, Pidgin, Yoruba, French or Wolof. With an API key, Claude Haiku writes that reminder; it sees only the language, the seat and the amount, never a name or a wallet link. Each page is under 14 kilobytes, so it loads on a mid-range phone on a weak connection. A market trader in Lagos or Dakar keeps their own sats, and the circle keeps its trust without a pot-holder."
 
 ## Next steps, 2:35 to 3:00
 

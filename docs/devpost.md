@@ -56,7 +56,7 @@ The full list, with the evidence for each control, is in `docs/threat-model.md`.
 
 Market traders, artisans and salaried workers in Nigeria and Senegal already save in rotating circles. Ajo on Lightning keeps the habit and removes the single point of failure. A trader in Lagos or Dakar keeps their own sats until the moment they pay, and every member sees each payment land. Payments cost about 1 sat in routing fees and settle in seconds at any hour.
 
-The pages suit the phones people carry. Each page is about 12 KB in one request, with no images or web fonts to fetch. The amounts show in sats and in naira. Reminders come in the languages circles use, and they paste straight into the WhatsApp group where the circle already talks.
+The pages suit the phones people carry. Each page is under 14 KB in one request, with no images or web fonts to fetch. The amounts show in sats and in naira. Reminders come in the languages circles use, and they paste straight into the WhatsApp group where the circle already talks.
 
 ## How to run it
 

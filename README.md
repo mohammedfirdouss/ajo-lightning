@@ -109,7 +109,7 @@ These numbers come from runs on this stack. A pilot would track the same ones.
 | --- | --- |
 | Time from pressing collect to a complete round of 4 payers, seen in the browser | About 1.3 seconds |
 | Routing fee per 1000 sat payment | 1 sat |
-| Page weight, one request, no image files or web fonts | 11 to 12 KB |
+| Page weight, one request, no image files or web fonts | 11 to 14 KB |
 | Time from a fresh clone to a collected round, images pulled, with a script typing into the pages | 77 seconds, the median of 3 runs. The seed takes 11 to 15 of them. |
 | Members shown as not paid who were charged | 0. `scripts/e2e` check 2 reads each such member's hub balance. |
 
