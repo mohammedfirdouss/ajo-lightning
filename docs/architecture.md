@@ -61,3 +61,7 @@ For each paid contribution the runner signs a Nostr event with the circle's key 
 ## Reminders
 
 Each unpaid row on the round page has a reminder in the circle's language: English, Nigerian Pidgin, Yoruba, French or Wolof. With `ANTHROPIC_API_KEY` set, Claude Haiku writes the message from the language, the seat number, the amount and the due date. Without a key, or when the call fails or takes longer than 3.5 seconds, the page shows a fixed template. Either way, the page then swaps the seat label for the member's name, so the name never leaves the server.
+
+## Keys
+
+Before any host command has written `.env`, the stack keeps its own `AJO_SECRET_KEY` and `AJO_CIRCLE_KEY` in `keys.env` in its state volume. `node src/run-round.ts <round>` copies that pair to `.env` on its first run, or writes a new pair when the stack has none. `AJO_SECRET_KEY` seals member names and NWC secrets in the stack's database, so keep `.env`. An `AJO_SECRET_KEY` exported in your shell overrides the one in `.env`. If the runner says the database was sealed with a different key, restore the original `.env` and unset any exported key, or run `docker compose down -v` to start fresh.
