@@ -7,7 +7,7 @@ Built for the [Dakar Bitcoin Hack 2026](https://dakar-bitcoin-hack-2026.devpost.
 <p>
 <img src="docs/media/circle.png" width="200" alt="The circle page lists five members in payout order, each with a weekly limit of 1,010 sat.">
 <img src="docs/media/round-complete.png" width="200" alt="Round 1 pays Ada. Four of four members have paid, 4,000 sat of 4,000 sat, and the round is complete.">
-<img src="docs/media/round-partial.png" width="200" alt="Round 2 pays Chidi, partly paid. Ada has paid. Fatou and Moussa show Not paid, over your limit, each with a reminder to copy into WhatsApp. The bar at the bottom offers Check unpaid payments.">
+<img src="docs/media/round-partial.png" width="200" alt="Round 2 pays Chidi, partly paid. Ada has paid. Fatou and Moussa show Not paid, over your limit, each with a reminder written by Claude Haiku that greets them by name, ready to copy into WhatsApp. The bar at the bottom offers Check unpaid payments.">
 </p>
 
 [docs/media/demo.mp4](docs/media/demo.mp4) is the 3-minute demo, recorded on the live regtest stack with an Anthropic key set, so the reminders on screen come from Claude Haiku. [docs/media/quickstart-round.mp4](docs/media/quickstart-round.mp4) records the steps below on the demo stack, from an empty circle to round 1's receipts, in 10 seconds.
