@@ -12,6 +12,21 @@ Built for the [Dakar Bitcoin Hack 2026](https://dakar-bitcoin-hack-2026.devpost.
 
 [docs/media/demo.mp4](docs/media/demo.mp4) is the 3-minute demo, recorded on the live regtest stack with an Anthropic key set, so the reminders on screen come from Claude Haiku. [docs/media/quickstart-round.mp4](docs/media/quickstart-round.mp4) records the steps below on the demo stack, from an empty circle to round 1's receipts, in 10 seconds.
 
+## Who it's for
+
+**Primary user: the circle organiser.** In a Lagos or Dakar market this is often the woman who already runs the traders' ajo or tontine. She has 5 to 20 members who each pay the same amount every week or month, and she hands the pot to one of them each round.
+
+| Her week | Today | With Ajo on Lightning |
+| --- | --- | --- |
+| Collecting | Visits stalls or waits for transfers, and counts the money | Presses **Collect this round**; each member's own wallet pays the payee directly |
+| Holding the pot | Carries the cash or keeps it in her account, so the circle's savings depend on her | Holds nothing; the payee receives each payment within seconds |
+| Chasing late payers | Calls or messages each one, and argues about who has paid | Each row says who paid and why a payment failed; a ready reminder copies into the WhatsApp group |
+| Proving who paid | Her word, or screenshots of transfers | A signed receipt on Nostr for every payment, readable by any member |
+
+**Members** keep their sats in their own wallet until the moment they pay, and set a weekly or monthly limit that Ajo cannot exceed.
+
+**Reach.** These are estimates, not measurements. One weekly circle of 10 members serves 10 people a week, with 9 payments and 1 payout each round, which comes to 468 payments a year. A first pilot of 10 such circles in one market would serve 100 members and 90 payments a week. Today one stack runs one circle (see Constraints); running many circles per server is in the next iteration. Collecting a round of 4 payers takes about 1.3 seconds on the demo stack, so collection time is not the limit.
+
 ## Run the demo
 
 You need Docker. From the repo root, run:

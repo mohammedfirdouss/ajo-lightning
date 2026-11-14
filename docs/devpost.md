@@ -52,6 +52,12 @@ A member never hands Ajo a seed phrase or a private key. The wallet's limit caps
 
 The full list, with the evidence for each control, is in `docs/threat-model.md`.
 
+## Who it's for
+
+The primary user is the circle organiser, often the woman who already runs a market traders' ajo or tontine, with 5 to 20 members. Today she collects cash or transfers, holds the pot, chases late payers and vouches for who paid. With Ajo on Lightning she presses one button: each member's own wallet pays the payee directly, she holds nothing, each row shows who paid and why a payment failed, a reminder copies into the WhatsApp group, and every payment has a signed Nostr receipt.
+
+Reach, as an estimate: one weekly circle of 10 members serves 10 people a week, with 9 payments and a payout each round, or 468 payments a year. A first pilot of 10 circles in one market would serve 100 members and 90 payments a week.
+
 ## Impact for Nigeria and Senegal
 
 Market traders, artisans and salaried workers in Nigeria and Senegal already save in rotating circles. Ajo on Lightning keeps the habit and removes the single point of failure. A trader in Lagos or Dakar keeps their own sats until the moment they pay, and every member sees each payment land. Payments cost about 1 sat in routing fees and settle in seconds at any hour.
